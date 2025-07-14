@@ -374,7 +374,7 @@ const App = () => {
 
   return (
     <TooltipProvider>
-      <div className="min-h-screen bg-background text-foreground transition-colors duration-300">
+      <div className="min-h-screen bg-background text-foreground transition-colors duration-300 flex flex-col">
         {/* Header */}
         <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
@@ -402,118 +402,9 @@ const App = () => {
             </Button>
           </div>
         </header>
-
-        {/* Hero Section */}
-        {/* <section className="py-20 px-4">
-          <div className="container mx-auto text-center">
-            <div className="inline-block p-1 bg-gradient-primary rounded-full shadow-elegant mb-8">
-              <div className="bg-background rounded-full px-6 py-12">
-                <FontAwesomeIcon 
-                  icon={faRocket} 
-                  className="text-6xl text-primary mb-4"
-                />
-              </div>
-            </div>
-            
-            <h1 className="text-5xl md:text-7xl font-bold mb-6">
-              <span className="bg-gradient-primary bg-clip-text text-transparent">
-                Beautiful
-              </span>{' '}
-              <span className="text-foreground">React App</span>
-            </h1>
-            
-            <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-              A stunning single-page application built with modern tools and beautiful design. 
-              Experience the perfect blend of performance and aesthetics.
-            </p>
-            
-            <div className="flex flex-wrap justify-center gap-4 mb-12">
-              <Badge variant="secondary" className="px-4 py-2 text-sm">
-                <FontAwesomeIcon icon={faCode} className="mr-2" />
-                TypeScript
-              </Badge>
-              <Badge variant="secondary" className="px-4 py-2 text-sm">
-                <FontAwesomeIcon icon={faRocket} className="mr-2" />
-                Vite
-              </Badge>
-              <Badge variant="secondary" className="px-4 py-2 text-sm">
-                <FontAwesomeIcon icon={faPalette} className="mr-2" />
-                Tailwind CSS
-              </Badge>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button 
-                size="lg" 
-                className="bg-gradient-primary hover:shadow-glow transition-all duration-300"
-                onClick={() => toast({
-                  title: "🚀 Getting Started",
-                  description: "This is your beautiful React app in action!",
-                })}
-              >
-                <FontAwesomeIcon icon={faRocket} className="mr-2" />
-                Get Started
-              </Button>
-              
-              <Button 
-                size="lg" 
-                variant="outline"
-                className="transition-all duration-300 hover:shadow-elegant"
-                onClick={() => toast({
-                  title: "💡 Learn More",
-                  description: "Explore the features and capabilities of this app",
-                })}
-              >
-                <FontAwesomeIcon icon={faLightbulb} className="mr-2" />
-                Learn More
-              </Button>
-            </div>
-          </div>
-        </section> */}
-
-        {/* Features Section */}
-        {/* <section className="py-16 px-4 bg-muted/30">
-          <div className="container mx-auto">
-            <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-4">
-                Built with Modern Tools
-              </h2>
-              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                This application showcases the power of modern web development technologies
-              </p>
-            </div>
-            
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {features.map((feature, index) => (
-                <Card 
-                  key={index} 
-                  className="text-center hover:shadow-elegant transition-all duration-300 group cursor-pointer"
-                  onClick={() => toast({
-                    title: feature.title,
-                    description: feature.description,
-                  })}
-                >
-                  <CardHeader>
-                    <div className="w-16 h-16 bg-gradient-accent rounded-full flex items-center justify-center mx-auto mb-4 group-hover:shadow-glow transition-all duration-300">
-                      <FontAwesomeIcon 
-                        icon={feature.icon} 
-                        className="text-2xl text-accent-foreground"
-                      />
-                    </div>
-                    <CardTitle className="text-lg">{feature.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <CardDescription className="text-sm">
-                      {feature.description}
-                    </CardDescription>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        </section> */}
+       
         {/* app.tsx part */}
-        <div className="flex flex-col md:flex-row h-screen font-inter">
+        <div className="flex flex-col md:flex-row min-h-[calc(100vh-4rem)] font-inter">
             {/* Overlay for mobile menu */}
             <div
                 className={`fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden ${isMenuOpen ? 'visible' : 'hidden'}`}
@@ -523,8 +414,8 @@ const App = () => {
             {/* Left Half: User Controls */}
             <div
                 id="left-panel"
-                className={`w-full md:w-1/3 p-6 border-r border-gray-200 dark:border-gray-700 overflow-y-auto bg-white dark:bg-gray-800 rounded-lg md:rounded-none
-                    fixed top-0 left-0 h-full z-50 transform transition-transform duration-300
+                className={`w-full md:w-1/4 p-6 border-r border-gray-200 dark:border-gray-700 overflow-y-auto bg-white dark:bg-gray-800 rounded-lg md:rounded-none
+                    fixed top-0 left-0 h-[calc(100vh-4rem)] z-50 transform transition-transform duration-300
                     ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 md:shadow-none shadow-xl`}
             >
                 {/* <div className="flex justify-between items-center mb-6">
@@ -696,7 +587,7 @@ const App = () => {
             </div>
 
             {/* Right Half: Model Outputs */}
-            <div id="right-panel" className="flex-1 p-6 overflow-y-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div id="right-panel" className="flex-1 p-6 overflow-y-auto h-[calc(100vh-4rem)] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div id="outputContainer" className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {outputs.length === 0 && !isLoading && (
                         <div className="model-output-block bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 fade-in-output col-span-full">
