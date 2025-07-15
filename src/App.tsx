@@ -3,32 +3,56 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faSun,
   faMoon,
-  faCode,
-  faRocket,
-  faPalette,
-  faCog,
-  faHeart,
   faLightbulb
 } from '@fortawesome/free-solid-svg-icons';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { Menu, X, ChevronDown, Bot, Zap, Palette, Code, FileText, Image, BarChart3, Copy, RotateCcw } from 'lucide-react';
 
-//app.tsx copy logic
+// Dynamic JSON structure for Function -> Platform -> Models
+const dynamicPlatformModels = {
+  "Text Completion": {
+    "OpenAI": ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
+    "Anthropic": ["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
+    "Google": ["gemini-1.5-pro", "gemini-1.0-pro", "palm2"],
+    "Cohere": ["command-r-plus", "command", "embed-english-v3.0"]
+  },
+  "Code Generation": {
+    "OpenAI": ["gpt-4o", "gpt-4-turbo"],
+    "Anthropic": ["claude-3-opus", "claude-3-sonnet"],
+    "Google": ["gemini-1.5-pro"]
+  },
+  "Image Generation": {
+    "OpenAI": ["dall-e-3", "dall-e-2"],
+    "Stability": ["stable-diffusion-xl", "stable-diffusion-v2"]
+  },
+  "Image Description": {
+    "OpenAI": ["gpt-4o", "gpt-4-turbo"],
+    "Anthropic": ["claude-3-opus", "claude-3-sonnet"],
+    "Google": ["gemini-1.5-pro"]
+  },
+  "Sentiment Analysis": {
+    "OpenAI": ["gpt-4o", "gpt-3.5-turbo"],
+    "Anthropic": ["claude-3-haiku"],
+    "Google": ["gemini-1.0-pro"],
+    "Cohere": ["command-r-plus", "command"]
+  }
+};
+
 const functionConfigs = [
   {
-    name: "text_completion",
-    displayName: "Text Completion",
+    name: "Text Completion",
     apiEndpoint: "/api/text-completion",
-    inputs: [] // No specific inputs beyond the main prompt
+    inputs: []
   },
   {
-    name: "code_generation",
-    displayName: "Code Generation",
+    name: "Code Generation", 
     apiEndpoint: "/api/code-generation",
     inputs: [
       { id: "language", label: "Language", type: "text", placeholder: "e.g., Python, JavaScript", tooltip: "Specify the programming language for code generation." },
@@ -36,16 +60,21 @@ const functionConfigs = [
     ]
   },
   {
-    name: "image_description",
-    displayName: "Image Description",
+    name: "Image Generation",
+    apiEndpoint: "/api/image-generation", 
+    inputs: [
+      { id: "style", label: "Art Style", type: "text", placeholder: "e.g., photorealistic, cartoon", tooltip: "Specify the desired art style for image generation." }
+    ]
+  },
+  {
+    name: "Image Description",
     apiEndpoint: "/api/image-description",
     inputs: [
       { id: "imageUpload", label: "Upload Image", type: "file", accept: "image/*", tooltip: "Upload an image for the AI to describe." }
     ]
   },
   {
-    name: "sentiment_analysis",
-    displayName: "Sentiment Analysis",
+    name: "Sentiment Analysis",
     apiEndpoint: "/api/sentiment-analysis",
     inputs: [
       { id: "sentimentTarget", label: "Target Entity (Optional)", type: "text", placeholder: "e.g., 'product', 'service'", tooltip: "Specify a specific entity to analyze sentiment for within the text." }
@@ -54,17 +83,36 @@ const functionConfigs = [
 ];
 
 const getPlatformIcon = (platform) => {
-  switch (platform) {
+  switch (platform.toLowerCase()) {
     case 'openai':
-      return <i className="fab fa-openid text-blue-500 mr-2"></i>;
+      return <Bot className="w-4 h-4 mr-2 text-green-500" />;
     case 'anthropic':
-      return <svg className="inline-block w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-1-13h2v6h-2zm0 8h2v2h-2z" /></svg>;
+      return <Zap className="w-4 h-4 mr-2 text-orange-500" />;
     case 'cohere':
-      return <svg className="inline-block w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm0 18c-4.411 0-8-3.589-8-8s3.589-8 8-8 8 3.589 8 8-3.589 8-8 8zm-2-10h4v2h-4v-2z" /></svg>;
-    case 'google_palm':
-      return <svg className="inline-block w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v-6h-2v6zm0-8h2V7h-2v2z" /></svg>;
+      return <Palette className="w-4 h-4 mr-2 text-purple-500" />;
+    case 'google':
+      return <BarChart3 className="w-4 h-4 mr-2 text-blue-500" />;
+    case 'stability':
+      return <Image className="w-4 h-4 mr-2 text-pink-500" />;
     default:
-      return <i className="fas fa-robot mr-2"></i>; // Generic icon
+      return <Bot className="w-4 h-4 mr-2 text-gray-500" />;
+  }
+};
+
+const getFunctionIcon = (functionName) => {
+  switch (functionName) {
+    case 'Text Completion':
+      return <FileText className="w-4 h-4 mr-2" />;
+    case 'Code Generation':
+      return <Code className="w-4 h-4 mr-2" />;
+    case 'Image Generation':
+      return <Image className="w-4 h-4 mr-2" />;
+    case 'Image Description':
+      return <Image className="w-4 h-4 mr-2" />;
+    case 'Sentiment Analysis':
+      return <BarChart3 className="w-4 h-4 mr-2" />;
+    default:
+      return <Bot className="w-4 h-4 mr-2" />;
   }
 };
 
@@ -97,19 +145,15 @@ const App = () => {
   const { toast } = useToast();
   const [theme, setTheme] = useState('light');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [selectedFunction, setSelectedFunction] = useState(functionConfigs[0].name);
-  const [selectedPlatforms, setSelectedPlatforms] = useState([]);
-  const [selectedModels, setSelectedModels] = useState({
-    openai: [],
-    anthropic: [],
-    cohere: [],
-    google_palm: []
-  });
+  const [selectedFunction, setSelectedFunction] = useState('');
+  const [selectedPlatform, setSelectedPlatform] = useState('');
+  const [selectedModel, setSelectedModel] = useState('');
   const [promptText, setPromptText] = useState('');
   const [dynamicInputs, setDynamicInputs] = useState({});
   const [isLoading, setIsLoading] = useState(false);
   const [outputs, setOutputs] = useState([]);
   const [messageBox, setMessageBox] = useState(null);
+  const [isLeftPanelVisible, setIsLeftPanelVisible] = useState(true);
 
   useEffect(() => {
     // Check for saved theme preference or default to light mode
@@ -140,29 +184,16 @@ const App = () => {
     });
   };
 
-  //ai-playGround app.tsx file all this 
-  // Define available models for each platform
-    const availableModels = {
-        openai: [
-            { value: "gpt-4o", label: "GPT-4o" },
-            { value: "gpt-4-turbo", label: "GPT-4 Turbo" },
-            { value: "gpt-3.5-turbo", label: "GPT-3.5 Turbo" },
-        ],
-        anthropic: [
-            { value: "claude-3-opus", label: "Claude 3 Opus" },
-            { value: "claude-3-sonnet", label: "Claude 3 Sonnet" },
-            { value: "claude-3-haiku", label: "Claude 3 Haiku" },
-        ],
-        cohere: [
-            { value: "command-r-plus", label: "Command R+" },
-            { value: "command", label: "Command" },
-            { value: "embed-english-v3.0", label: "Embed English v3.0" },
-        ],
-        google_palm: [
-            { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro" },
-            { value: "gemini-1.0-pro", label: "Gemini 1.0 Pro" },
-            { value: "palm2", label: "PaLM 2" },
-        ],
+    // Get available platforms for selected function
+    const getAvailablePlatforms = () => {
+        if (!selectedFunction || !dynamicPlatformModels[selectedFunction]) return [];
+        return Object.keys(dynamicPlatformModels[selectedFunction]);
+    };
+
+    // Get available models for selected platform and function
+    const getAvailableModels = () => {
+        if (!selectedFunction || !selectedPlatform || !dynamicPlatformModels[selectedFunction]?.[selectedPlatform]) return [];
+        return dynamicPlatformModels[selectedFunction][selectedPlatform];
     };
 
     // --- Effects ---
@@ -189,7 +220,18 @@ const App = () => {
             });
         }
         setDynamicInputs(newDynamicInputs);
-    }, [selectedFunction]); // Only re-run when selectedFunction changes
+    }, [selectedFunction]);
+
+    // Reset platform and model when function changes
+    useEffect(() => {
+        setSelectedPlatform('');
+        setSelectedModel('');
+    }, [selectedFunction]);
+
+    // Reset model when platform changes
+    useEffect(() => {
+        setSelectedModel('');
+    }, [selectedPlatform]);
 
     // --- Handlers ---
 
@@ -202,28 +244,9 @@ const App = () => {
         localStorage.setItem('theme', newTheme);
     };
 
-    // Mobile Menu Toggle Handler
-    const handleMenuToggle = () => {
-        setIsMenuOpen(!isMenuOpen);
-    };
-
-    // Platform Checkbox Change Handler
-    const handlePlatformChange = (e) => {
-        const { value, checked } = e.target;
-        setSelectedPlatforms(prev =>
-            checked ? [...prev, value] : prev.filter(platform => platform !== value)
-        );
-    };
-
-    // Model Checkbox Change Handler
-    const handleModelChange = (platform, e) => {
-        const { value, checked } = e.target;
-        setSelectedModels(prev => ({
-            ...prev,
-            [platform]: checked
-                ? [...prev[platform], value]
-                : prev[platform].filter(model => model !== value)
-        }));
+    // Toggle Left Panel Handler
+    const toggleLeftPanel = () => {
+        setIsLeftPanelVisible(!isLeftPanelVisible);
     };
 
     // Dynamic Input Change Handler
@@ -299,46 +322,29 @@ const App = () => {
             return;
         }
 
-        const currentFunctionConfig = functionConfigs.find(func => func.name === selectedFunction);
-        const modelsToGenerate = [];
-
-        selectedPlatforms.forEach(platform => {
-            selectedModels[platform].forEach(modelValue => {
-                // Find the display label for the model
-                const modelData = availableModels[platform]?.find(m => m.value === modelValue);
-                modelsToGenerate.push({
-                    platform: platform,
-                    model: modelValue,
-                    displayName: `${modelData ? modelData.label : modelValue} - ${platform.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}`
-                });
-            });
-        });
-
-        if (modelsToGenerate.length === 0) {
-            showMessageBox("Please select at least one AI platform and model.", "warning");
+        if (!selectedFunction || !selectedPlatform || !selectedModel) {
+            showMessageBox("Please select a function, platform, and model.", "warning");
             return;
         }
+
+        const currentFunctionConfig = functionConfigs.find(func => func.name === selectedFunction);
+        const modelInfo = {
+            platform: selectedPlatform,
+            model: selectedModel,
+            displayName: `${selectedModel} - ${selectedPlatform}`
+        };
 
         setIsLoading(true);
         setOutputs([]); // Clear previous outputs
 
-        let completedGenerations = 0;
-        const newOutputs = [];
-
-        for (const modelInfo of modelsToGenerate) {
-            try {
-                const response = await simulateApiCall(modelInfo, promptText, currentFunctionConfig, dynamicInputs);
-                newOutputs.push({ ...modelInfo, content: response, isError: false });
-            } catch (error) {
-                console.error(`Error generating for ${modelInfo.displayName}:`, error);
-                newOutputs.push({ ...modelInfo, content: `Error: ${error.message || 'Failed to generate response.'}`, isError: true });
-            } finally {
-                completedGenerations++;
-                if (completedGenerations === modelsToGenerate.length) {
-                    setOutputs(newOutputs);
-                    setIsLoading(false);
-                }
-            }
+        try {
+            const response = await simulateApiCall(modelInfo, promptText, currentFunctionConfig, dynamicInputs);
+            setOutputs([{ ...modelInfo, content: response, isError: false }]);
+        } catch (error) {
+            console.error(`Error generating for ${modelInfo.displayName}:`, error);
+            setOutputs([{ ...modelInfo, content: `Error: ${error.message || 'Failed to generate response.'}`, isError: true }]);
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -379,6 +385,14 @@ const App = () => {
         <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
             <div className="flex items-center space-x-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleLeftPanel}
+                className="mr-2"
+              >
+                {isLeftPanelVisible ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+              </Button>
               <div className="w-10 h-10 bg-gradient-primary rounded-lg flex items-center justify-center shadow-glow">
                 <FontAwesomeIcon icon={faLightbulb} className="text-primary-foreground text-lg" />
               </div>
@@ -403,247 +417,203 @@ const App = () => {
           </div>
         </header>
        
-        {/* app.tsx part */}
-        <div className="flex flex-col md:flex-row min-h-[calc(100vh-4rem)] font-inter">
-            {/* Overlay for mobile menu */}
-            <div
-                className={`fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden ${isMenuOpen ? 'visible' : 'hidden'}`}
-                onClick={handleMenuToggle}
-            ></div>
+        {/* Main Content */}
+        <div className="flex min-h-[calc(100vh-5rem)]">
+            {/* Left Panel: User Controls */}
+            <div className={`${isLeftPanelVisible ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden border-r border-border bg-card`}>
+                <div className="p-6 h-full overflow-y-auto">
+                    <div className="space-y-6">
+                        {/* Function Selector */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Function Test</label>
+                            <Select value={selectedFunction} onValueChange={setSelectedFunction}>
+                                <SelectTrigger className="w-full">
+                                    <div className="flex items-center">
+                                        {selectedFunction && getFunctionIcon(selectedFunction)}
+                                        <SelectValue placeholder="Select a function" />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {functionConfigs.map(func => (
+                                        <SelectItem key={func.name} value={func.name}>
+                                            <div className="flex items-center">
+                                                {getFunctionIcon(func.name)}
+                                                {func.name}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-            {/* Left Half: User Controls */}
-            <div
-                id="left-panel"
-                className={`w-full md:w-1/4 p-6 border-r border-gray-200 dark:border-gray-700 overflow-y-auto bg-white dark:bg-gray-800 rounded-lg md:rounded-none
-                    fixed top-0 left-0 h-[calc(100vh-4rem)] z-50 transform transition-transform duration-300
-                    ${isMenuOpen ? 'translate-x-0' : '-translate-x-full'} md:relative md:translate-x-0 md:shadow-none shadow-xl`}
-            >
-                {/* <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-2xl font-bold">AI Playground</h2>
-                    <div className="flex items-center space-x-4">
-                        
-                        <button
-                            id="menuClose"
-                            className="md:hidden p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200"
-                            onClick={handleMenuToggle}
-                        >
-                            <i className="fas fa-times w-6 h-6"></i>
-                        </button>
-                       
-                        <button
-                            id="themeToggle"
-                            className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors duration-200"
-                            onClick={handleThemeToggle}
-                        >
-                            {theme === 'light' ? (
-                                <svg className="w-6 h-6 sun-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 3v1m0 16v1m9-9h1M4 12H3m15.325 5.924l-.707.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
-                            ) : (
-                                <svg className="w-6 h-6 moon-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
-                            )}
-                        </button>
-                    </div>
-                </div> */}
+                        {/* AI Platform Selector */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">AI Platforms</label>
+                            <Select 
+                                value={selectedPlatform} 
+                                onValueChange={setSelectedPlatform}
+                                disabled={!selectedFunction}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <div className="flex items-center">
+                                        {selectedPlatform && getPlatformIcon(selectedPlatform)}
+                                        <SelectValue placeholder={selectedFunction ? "Select a platform" : "Select function first"} />
+                                    </div>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {getAvailablePlatforms().map(platform => (
+                                        <SelectItem key={platform} value={platform}>
+                                            <div className="flex items-center">
+                                                {getPlatformIcon(platform)}
+                                                {platform}
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
 
-                {/* Function Selector */}
-                <div className="mb-5 relative group">
-                    <label htmlFor="functionSelector" className="block text-sm font-medium mb-2">
-                        Function to Test
-                        <span className="ml-1 text-gray-500 dark:text-gray-400 cursor-help" title="Select a predefined function for AI model testing. This will dynamically adjust the input fields.">
-                            <i className="fas fa-info-circle"></i>
-                        </span>
-                    </label>
-                    <select
-                        id="functionSelector"
-                        className="block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 appearance-none transition-all duration-200 ease-in-out"
-                        value={selectedFunction}
-                        onChange={(e) => setSelectedFunction(e.target.value)}
-                    >
-                        {functionConfigs.map(func => (
-                            <option key={func.name} value={func.name}>{func.displayName}</option>
-                        ))}
-                    </select>
-                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700 dark:text-gray-300">
-                        <svg className="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path d="M9.293 12.95l.707.707L15.657 8l-1.414-1.414L10 10.828 6.757 7.586 5.343 9z"/></svg>
+                        {/* Model Selector */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Models</label>
+                            <Select 
+                                value={selectedModel} 
+                                onValueChange={setSelectedModel}
+                                disabled={!selectedPlatform}
+                            >
+                                <SelectTrigger className="w-full">
+                                    <SelectValue placeholder={selectedPlatform ? "Select a model" : "Select platform first"} />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {getAvailableModels().map(model => (
+                                        <SelectItem key={model} value={model}>
+                                            {model}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Dynamic Input Section */}
+                        {selectedFunction && functionConfigs.find(f => f.name === selectedFunction)?.inputs.length > 0 && (
+                            <div className="space-y-4">
+                                <label className="text-sm font-medium">Additional Parameters</label>
+                                {functionConfigs.find(f => f.name === selectedFunction)?.inputs.map(input => (
+                                    <div key={input.id} className="space-y-2">
+                                        <label htmlFor={input.id} className="text-sm text-muted-foreground">
+                                            {input.label}
+                                        </label>
+                                        {input.type === 'text' && (
+                                            <input
+                                                type="text"
+                                                id={input.id}
+                                                className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                                                placeholder={input.placeholder || ''}
+                                                value={dynamicInputs[input.id] || ''}
+                                                onChange={handleDynamicInputChange}
+                                            />
+                                        )}
+                                        {input.type === 'file' && (
+                                            <input
+                                                type="file"
+                                                id={input.id}
+                                                accept={input.accept || '*'}
+                                                className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-secondary-foreground"
+                                                onChange={handleDynamicInputChange}
+                                            />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Prompt Text Area */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Prompt Text</label>
+                            <textarea
+                                rows={8}
+                                className="w-full px-3 py-2 border border-input rounded-md bg-background resize-y"
+                                placeholder="Enter your prompt here..."
+                                value={promptText}
+                                onChange={(e) => setPromptText(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Generate Button */}
+                        <Button
+                            onClick={handleGenerate}
+                            disabled={isLoading || !selectedFunction || !selectedPlatform || !selectedModel}
+                            className="w-full"
+                        >
+                            {isLoading ? 'Generating...' : 'Generate Response'}
+                            {isLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>}
+                        </Button>
                     </div>
                 </div>
+            </div>
 
-                {/* AI Platform Selector (Checkboxes) */}
-                <div className="mb-5 relative group">
-                    <label className="block text-sm font-medium mb-2">
-                        AI Platforms
-                        <span className="ml-1 text-gray-500 dark:text-gray-400 cursor-help" title="Choose one or more AI platforms to compare their model responses.">
-                            <i className="fas fa-info-circle"></i>
-                        </span>
-                    </label>
-                    <div className="flex flex-col space-y-2 p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-800">
-                        {['openai', 'anthropic', 'cohere', 'google_palm'].map(platform => (
-                            <label key={platform} className="inline-flex items-center cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    value={platform}
-                                    checked={selectedPlatforms.includes(platform)}
-                                    onChange={handlePlatformChange}
-                                    className="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:checked:bg-blue-500 dark:checked:border-transparent"
-                                />
-                                <span className="ml-2 text-gray-700 dark:text-gray-300 flex items-center">
-                                    {getPlatformIcon(platform)} {platform.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                                </span>
-                            </label>
-                        ))}
-                    </div>
-                </div>
-
-                {/* Conditional Model Selectors (Checkboxes) */}
-                {['openai', 'anthropic', 'cohere', 'google_palm'].map(platform => (
-                    <div
-                        key={platform}
-                        id={`${platform}Models`}
-                        className={`model-selector-group mb-5 fade-in-transition ${selectedPlatforms.includes(platform) ? '' : 'hidden'}`}
-                    >
-                        <label className="block text-sm font-medium mb-2">
-                            {getPlatformIcon(platform)} {platform.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')} Models
-                        </label>
-                        <div className="flex flex-col space-y-2 p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm bg-white dark:bg-gray-800">
-                            {availableModels[platform]?.map(model => (
-                                <label key={model.value} className="inline-flex items-center cursor-pointer">
-                                    <input
-                                        type="checkbox"
-                                        value={model.value}
-                                        checked={selectedModels[platform]?.includes(model.value)}
-                                        onChange={(e) => handleModelChange(platform, e)}
-                                        className="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:checked:bg-blue-500 dark:checked:border-transparent"
-                                    />
-                                    <span className="ml-2 text-gray-700 dark:text-gray-300">
-                                        {model.label}
-                                    </span>
-                                </label>
+            {/* Right Panel: Model Outputs */}
+            <div className="flex-1 p-6">
+                <div className="h-full">
+                    {outputs.length === 0 && !isLoading ? (
+                        <Card className="h-full flex items-center justify-center">
+                            <CardContent className="text-center">
+                                <Bot className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+                                <h3 className="text-lg font-semibold mb-2">Welcome to AI Playground!</h3>
+                                <p className="text-muted-foreground">
+                                    Select a function, platform, and model on the left, then enter your prompt to see responses here.
+                                </p>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <div className="space-y-4 h-full overflow-y-auto">
+                            {outputs.map((output, index) => (
+                                <Card key={`${output.platform}-${output.model}-${index}`} className={output.isError ? 'border-destructive' : ''}>
+                                    <CardHeader className="pb-3">
+                                        <div className="flex items-center justify-between">
+                                            <CardTitle className="flex items-center text-base">
+                                                {getPlatformIcon(output.platform)}
+                                                {output.displayName}
+                                            </CardTitle>
+                                            <div className="flex space-x-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => copyToClipboard(output.content)}
+                                                    className="h-8 w-8 p-0"
+                                                >
+                                                    <Copy className="w-4 h-4" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => handleRegenerate(output, index)}
+                                                    disabled={output.isLoading}
+                                                    className="h-8 w-8 p-0"
+                                                >
+                                                    <RotateCcw className={`w-4 h-4 ${output.isLoading ? 'animate-spin' : ''}`} />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="bg-muted p-3 rounded-md max-h-96 overflow-auto">
+                                            <pre className="text-sm whitespace-pre-wrap font-mono">
+                                                {output.isError ? (
+                                                    <span className="text-destructive">{output.content}</span>
+                                                ) : (
+                                                    output.content
+                                                )}
+                                            </pre>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             ))}
                         </div>
-                    </div>
-                ))}
-
-                 {/* Dynamic Input Section */}
-                <div id="dynamicInputs" className="mb-5">
-                    {functionConfigs.find(f => f.name === selectedFunction)?.inputs.map(input => (
-                        <div key={input.id} className="input-field mb-4">
-                            <label htmlFor={input.id} className="block text-sm font-medium mb-1">
-                                {input.label}
-                                <span className="ml-1 text-gray-500 dark:text-gray-400 cursor-help" title={input.tooltip}>
-                                    <i className="fas fa-info-circle"></i>
-                                </span>
-                            </label>
-                            {input.type === 'text' && (
-                                <input
-                                    type="text"
-                                    id={input.id}
-                                    className="block w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800"
-                                    placeholder={input.placeholder || ''}
-                                    value={dynamicInputs[input.id] || ''}
-                                    onChange={handleDynamicInputChange}
-                                />
-                            )}
-                            {input.type === 'file' && (
-                                <input
-                                    type="file"
-                                    id={input.id}
-                                    accept={input.accept || '*'}
-                                    className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-                                    onChange={handleDynamicInputChange}
-                                />
-                            )}
-                            {/* Add more input types (e.g., number, checkbox, textarea) as needed */}
-                        </div>
-                    ))}
-                </div>
-
-                {/* Prompt Text Area */}
-                <div className="mb-6">
-                    <label htmlFor="promptTextArea" className="block text-sm font-medium mb-2">
-                        Prompt Text
-                        <span className="ml-1 text-gray-500 dark:text-gray-400 cursor-help" title="Enter your query or instructions for the AI models.">
-                            <i className="fas fa-info-circle"></i>
-                        </span>
-                    </label>
-                    <textarea
-                        id="promptTextArea"
-                        rows={10}
-                        className="block w-full p-3 border border-gray-300 dark:border-gray-600 rounded-lg shadow-sm focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-800 resize-y"
-                        placeholder="Enter your prompt here..."
-                        value={promptText}
-                        onChange={(e) => setPromptText(e.target.value)}
-                    ></textarea>
-                </div>
-
-                {/* Generate Button */}
-                <button
-                    id="generateButton"
-                    className="w-full bg-blue-600 text-white p-3 rounded-lg font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900 transition-all duration-200 ease-in-out flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                    onClick={handleGenerate}
-                    disabled={isLoading}
-                >
-                    <span id="buttonText">{isLoading ? 'Generating...' : 'Generate Responses'}</span>
-                    {isLoading && <div id="loadingSpinner" className="animate-spin rounded-full h-5 w-5 border-b-2 border-white ml-2"></div>}
-                </button>
-            </div>
-
-            {/* Right Half: Model Outputs */}
-            <div id="right-panel" className="flex-1 p-6 overflow-y-auto h-[calc(100vh-4rem)] grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div id="outputContainer" className="col-span-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {outputs.length === 0 && !isLoading && (
-                        <div className="model-output-block bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 fade-in-output col-span-full">
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-lg font-semibold">
-                                    {getPlatformIcon('openai')} GPT-4o - OpenAI
-                                </h3>
-                                <div className="flex space-x-2">
-                                    <button className="copy-button text-gray-500 dark:text-gray-400" title="Copy output" disabled>
-                                        <i className="fas fa-copy"></i>
-                                    </button>
-                                    <button className="regenerate-button text-gray-500 dark:text-gray-400" title="Regenerate output" disabled>
-                                        <i className="fas fa-redo"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="output-content bg-gray-100 dark:bg-gray-700 p-3 rounded-md overflow-auto max-h-64 text-sm whitespace-pre-wrap">
-                                "Welcome to the AI Playground! Select functions and models on the left, then enter your prompt to see responses here."
-                            </div>
-                        </div>
                     )}
-
-                    {outputs.map((output, index) => (
-                        <div
-                            key={`${output.platform}-${output.model}-${index}`}
-                            className={`model-output-block bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 fade-in-output ${output.isError ? 'border border-red-500' : ''}`}
-                        >
-                            <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-lg font-semibold flex items-center">
-                                    {getPlatformIcon(output.platform)} {output.displayName}
-                                </h3>
-                                <div className="flex space-x-2">
-                                    <button
-                                        className="copy-button text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors duration-200"
-                                        title="Copy output"
-                                        onClick={() => copyToClipboard(output.content)}
-                                    >
-                                        <i className="fas fa-copy"></i>
-                                    </button>
-                                    <button
-                                        className="regenerate-button text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors duration-200"
-                                        title="Regenerate output"
-                                        onClick={() => handleRegenerate(output, index)}
-                                        disabled={output.isLoading}
-                                    >
-                                        {output.isLoading ? <i className="fas fa-spinner animate-spin"></i> : <i className="fas fa-redo"></i>}
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="output-content bg-gray-100 dark:bg-gray-700 p-3 rounded-md overflow-auto max-h-64 text-sm whitespace-pre-wrap">
-                                {output.isError ? <p className="text-red-500">{output.content}</p> : output.content}
-                            </div>
-                        </div>
-                    ))}
                 </div>
             </div>
+            
             {messageBox && (
                 <MessageBox
                     message={messageBox.message}
