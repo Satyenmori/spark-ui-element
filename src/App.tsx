@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -146,8 +147,8 @@ const App = () => {
   const [theme, setTheme] = useState('light');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [selectedFunction, setSelectedFunction] = useState('');
-  const [selectedPlatform, setSelectedPlatform] = useState('');
-  const [selectedModel, setSelectedModel] = useState('');
+  const [selectedPlatforms, setSelectedPlatforms] = useState([]);
+  const [selectedModels, setSelectedModels] = useState([]);
   const [promptText, setPromptText] = useState('');
   const [dynamicInputs, setDynamicInputs] = useState({});
   const [isLoading, setIsLoading] = useState(false);
@@ -190,10 +191,16 @@ const App = () => {
         return Object.keys(dynamicPlatformModels[selectedFunction]);
     };
 
-    // Get available models for selected platform and function
+    // Get available models for selected platforms and function
     const getAvailableModels = () => {
-        if (!selectedFunction || !selectedPlatform || !dynamicPlatformModels[selectedFunction]?.[selectedPlatform]) return [];
-        return dynamicPlatformModels[selectedFunction][selectedPlatform];
+        if (!selectedFunction || selectedPlatforms.length === 0) return {};
+        const modelsByPlatform = {};
+        selectedPlatforms.forEach(platform => {
+            if (dynamicPlatformModels[selectedFunction]?.[platform]) {
+                modelsByPlatform[platform] = dynamicPlatformModels[selectedFunction][platform];
+            }
+        });
+        return modelsByPlatform;
     };
 
     // --- Effects ---
@@ -222,16 +229,16 @@ const App = () => {
         setDynamicInputs(newDynamicInputs);
     }, [selectedFunction]);
 
-    // Reset platform and model when function changes
+    // Reset platforms and models when function changes
     useEffect(() => {
-        setSelectedPlatform('');
-        setSelectedModel('');
+        setSelectedPlatforms([]);
+        setSelectedModels([]);
     }, [selectedFunction]);
 
-    // Reset model when platform changes
+    // Reset models when platforms change
     useEffect(() => {
-        setSelectedModel('');
-    }, [selectedPlatform]);
+        setSelectedModels([]);
+    }, [selectedPlatforms]);
 
     // --- Handlers ---
 
@@ -322,30 +329,42 @@ const App = () => {
             return;
         }
 
-        if (!selectedFunction || !selectedPlatform || !selectedModel) {
-            showMessageBox("Please select a function, platform, and model.", "warning");
+        if (!selectedFunction || selectedPlatforms.length === 0 || selectedModels.length === 0) {
+            showMessageBox("Please select a function, at least one platform, and at least one model.", "warning");
             return;
         }
 
         const currentFunctionConfig = functionConfigs.find(func => func.name === selectedFunction);
-        const modelInfo = {
-            platform: selectedPlatform,
-            model: selectedModel,
-            displayName: `${selectedModel} - ${selectedPlatform}`
-        };
-
+        
         setIsLoading(true);
         setOutputs([]); // Clear previous outputs
 
-        try {
-            const response = await simulateApiCall(modelInfo, promptText, currentFunctionConfig, dynamicInputs);
-            setOutputs([{ ...modelInfo, content: response, isError: false }]);
-        } catch (error) {
-            console.error(`Error generating for ${modelInfo.displayName}:`, error);
-            setOutputs([{ ...modelInfo, content: `Error: ${error.message || 'Failed to generate response.'}`, isError: true }]);
-        } finally {
-            setIsLoading(false);
+        const allResponses = [];
+        
+        for (const model of selectedModels) {
+            const platform = selectedPlatforms.find(p => 
+                dynamicPlatformModels[selectedFunction]?.[p]?.includes(model)
+            );
+            
+            if (platform) {
+                const modelInfo = {
+                    platform: platform,
+                    model: model,
+                    displayName: `${model} - ${platform}`
+                };
+
+                try {
+                    const response = await simulateApiCall(modelInfo, promptText, currentFunctionConfig, dynamicInputs);
+                    allResponses.push({ ...modelInfo, content: response, isError: false });
+                } catch (error) {
+                    console.error(`Error generating for ${modelInfo.displayName}:`, error);
+                    allResponses.push({ ...modelInfo, content: `Error: ${error.message || 'Failed to generate response.'}`, isError: true });
+                }
+            }
         }
+        
+        setOutputs(allResponses);
+        setIsLoading(false);
     };
 
     // Regenerate Single Output Handler
@@ -449,49 +468,83 @@ const App = () => {
                         {/* AI Platform Selector */}
                         <div className="space-y-2">
                             <label className="text-sm font-medium">AI Platforms</label>
-                            <Select 
-                                value={selectedPlatform} 
-                                onValueChange={setSelectedPlatform}
-                                disabled={!selectedFunction}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <div className="flex items-center">
-                                        {selectedPlatform && getPlatformIcon(selectedPlatform)}
-                                        <SelectValue placeholder={selectedFunction ? "Select a platform" : "Select function first"} />
-                                    </div>
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {getAvailablePlatforms().map(platform => (
-                                        <SelectItem key={platform} value={platform}>
-                                            <div className="flex items-center">
-                                                {getPlatformIcon(platform)}
-                                                {platform}
+                            <div className="border border-input rounded-md p-3 bg-background min-h-[2.5rem]">
+                                {!selectedFunction ? (
+                                    <span className="text-muted-foreground text-sm">Select function first</span>
+                                ) : getAvailablePlatforms().length === 0 ? (
+                                    <span className="text-muted-foreground text-sm">No platforms available</span>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {getAvailablePlatforms().map(platform => (
+                                            <div key={platform} className="flex items-center space-x-2">
+                                                <Checkbox
+                                                    id={`platform-${platform}`}
+                                                    checked={selectedPlatforms.includes(platform)}
+                                                    onCheckedChange={(checked) => {
+                                                        if (checked) {
+                                                            setSelectedPlatforms([...selectedPlatforms, platform]);
+                                                        } else {
+                                                            setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
+                                                        }
+                                                    }}
+                                                    disabled={!selectedFunction}
+                                                />
+                                                <label
+                                                    htmlFor={`platform-${platform}`}
+                                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center cursor-pointer"
+                                                >
+                                                    {getPlatformIcon(platform)}
+                                                    {platform}
+                                                </label>
                                             </div>
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Model Selector */}
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Models</label>
-                            <Select 
-                                value={selectedModel} 
-                                onValueChange={setSelectedModel}
-                                disabled={!selectedPlatform}
-                            >
-                                <SelectTrigger className="w-full">
-                                    <SelectValue placeholder={selectedPlatform ? "Select a model" : "Select platform first"} />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {getAvailableModels().map(model => (
-                                        <SelectItem key={model} value={model}>
-                                            {model}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
+                            <div className="border border-input rounded-md p-3 bg-background min-h-[2.5rem]">
+                                {selectedPlatforms.length === 0 ? (
+                                    <span className="text-muted-foreground text-sm">Select platforms first</span>
+                                ) : (
+                                    <div className="space-y-3">
+                                        {Object.entries(getAvailableModels()).map(([platform, models]) => (
+                                            <div key={platform} className="space-y-2">
+                                                <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center">
+                                                    {getPlatformIcon(platform)}
+                                                    {platform}
+                                                </div>
+                                                <div className="space-y-1 ml-6">
+                                                    {(models as string[]).map(model => (
+                                                        <div key={`${platform}-${model}`} className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`model-${platform}-${model}`}
+                                                                checked={selectedModels.includes(model)}
+                                                                onCheckedChange={(checked) => {
+                                                                    if (checked) {
+                                                                        setSelectedModels([...selectedModels, model]);
+                                                                    } else {
+                                                                        setSelectedModels(selectedModels.filter(m => m !== model));
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <label
+                                                                htmlFor={`model-${platform}-${model}`}
+                                                                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                            >
+                                                                {model}
+                                                            </label>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         {/* Dynamic Input Section */}
@@ -542,7 +595,7 @@ const App = () => {
                         {/* Generate Button */}
                         <Button
                             onClick={handleGenerate}
-                            disabled={isLoading || !selectedFunction || !selectedPlatform || !selectedModel}
+                            disabled={isLoading || !selectedFunction || selectedPlatforms.length === 0 || selectedModels.length === 0}
                             className="w-full"
                         >
                             {isLoading ? 'Generating...' : 'Generate Response'}
@@ -572,8 +625,10 @@ const App = () => {
                                     <CardHeader className="pb-3">
                                         <div className="flex items-center justify-between">
                                             <CardTitle className="flex items-center text-base">
-                                                {getPlatformIcon(output.platform)}
-                                                {output.displayName}
+                                                <span className="flex items-center">
+                                                    {getPlatformIcon(output.platform)}
+                                                    {output.displayName}
+                                                </span>
                                             </CardTitle>
                                             <div className="flex space-x-2">
                                                 <Button
