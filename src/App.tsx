@@ -85,6 +85,23 @@ const functionConfigs = [
     }
 ];
 
+//interface
+interface GeneratePayload {
+    platforms: Record<string, string[]>;
+    input: string;
+    options?: Record<string, unknown>;
+    history?: unknown[]; // use more specific structure if known
+}
+
+interface ModelOutput {
+    model: string;
+    output: string;
+}
+
+interface ApiResponse {
+    response?: Record<string, ModelOutput[]>;
+    error?: string;
+}
 const getPlatformIcon = (platform) => {
     switch (platform.toLowerCase()) {
         case 'openai':
@@ -300,7 +317,7 @@ const App = () => {
             prompt: prompt,
             timestamp: new Date().toISOString()
         };
-        
+
         const updatedHistory = [newEntry, ...searchHistory];
         setSearchHistory(updatedHistory);
         localStorage.setItem('searchHistory', JSON.stringify(updatedHistory));
@@ -313,27 +330,40 @@ const App = () => {
     }, []);
 
     // API Dispatcher Function
-    const callAIModel = async (type: string, payload: any) => {
-        switch(type.toLowerCase()) {
-            case 'openai':
-                return await fetch("http://127.0.0.1:5000/generate-post", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
-            case 'image':
-                // Future: return callImageAPI(payload);
-                throw new Error("Image API not implemented yet");
-            case 'summarize':
-                // Future: return callSummarizerAPI(payload);
+    const callAIModel = async (
+        type: string,
+        payload: GeneratePayload
+    ): Promise<ApiResponse> => {
+        let url: string | null = null;
+
+        switch (type.trim().toLowerCase()) {
+            case "text completion":
+                url = "http://127.0.0.1:5000/generate-post";
+                break;
+            case "code generation":
+                throw new Error("Code Generation API not implemented yet");
+            case "image generation":
+                throw new Error("Image Generation API not implemented yet");
+            case "image description":
+                throw new Error("Image Description API not implemented yet");
+            case "sentiment description":
                 throw new Error("Summarizer API not implemented yet");
             default:
-                return await fetch("http://127.0.0.1:5000/generate-post", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload)
-                });
+                throw new Error(`API not found for selected function: "${type}"`);
         }
+
+        const response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+        });
+
+        const data: ApiResponse = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.error || "Unknown error from server");
+        }
+        return data;
     };
 
     // Copy to Clipboard
@@ -454,7 +484,7 @@ const App = () => {
         }
 
         setIsLoading(true);
-        setOutputs([]); // clear previous outputs
+        setOutputs([]);
 
         try {
             // Build the platform-models object
@@ -471,48 +501,41 @@ const App = () => {
                 }
             });
 
-            const response = await fetch("http://127.0.0.1:5000/generate-post", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    platforms: platformsWithModels,
-                    input: promptText,
-                    options: dynamicInputs || {},
-                    history: []
-                })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) throw new Error(data.error || "Something went wrong");
+            const payload: GeneratePayload = {
+                platforms: platformsWithModels,
+                input: promptText,
+                options: dynamicInputs || {},
+                history: [],
+            };
+            const data = await callAIModel(selectedFunction, payload);
 
             //set proper data in layout
-            const transformedOutputs = [];
-            if (data.response) {
-                for (const platform in data.response) {
-                    const platformOutputs = data.response[platform];
-
-                    platformOutputs.forEach(({ model, output }) => {
-                        transformedOutputs.push({
-                            platform: platform,
-                            model: model,
-                            displayName: `${model} - ${platform}`,
-                            content: output,
-                            isError: false
-                        });
-                    });
-                }
-            }
-
+            const transformedOutputs = Object.entries(data.response || {}).flatMap(([platform, results]) =>
+                results.map((item) => ({
+                    platform,
+                    model: item.model,
+                    displayName: `${item.model} - ${platform}`,
+                    content: item.output,
+                    isError: false,
+                }))
+            );
             setOutputs(transformedOutputs);
-            
             // Save to history after successful API call
             saveToHistory(promptText);
-        } catch (error) {
+            toast({
+                title: `${selectedFunction} API Success`,
+                description: `Response saved successfully for "${selectedFunction}".`,
+                variant: "success",
+            });
+        } catch (err) {
+            const error = err instanceof Error ? err : new Error("Unknown error");
             console.error("Error generating:", error);
-            showMessageBox("Failed to generate: " + error.message, "error");
+            toast({
+                title: `${selectedFunction} API Failed`,
+                description: error.message,
+                variant: "destructive",
+            });
+            // showMessageBox("Failed to generate: " + error.message, "error");
         } finally {
             setIsLoading(false);
         }
@@ -756,7 +779,7 @@ const App = () => {
                                     <div className="space-y-2">
                                         <label className="text-sm font-medium">Prompt</label>
                                         <textarea
-                                            rows={8}
+                                            rows={4}
                                             className="w-full px-3 py-2 border border-input rounded-md bg-background resize-y"
                                             placeholder="Enter your prompt here..."
                                             value={promptText}
@@ -825,7 +848,7 @@ const App = () => {
                                 </Card>
                             ) : (
                                 //  <div className={`h-full ${outputs.length > 3 ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto' : 'space-y-4 overflow-y-auto'}`}>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto h-full">
                                     {outputs.map((output, index) => (
                                         <Card key={`${output.platform}-${output.model}-${index}`} className={output.isError ? 'border-destructive' : ''}>
                                             <CardHeader className="pb-3">
@@ -858,7 +881,7 @@ const App = () => {
                                                 </div>
                                             </CardHeader>
                                             <CardContent>
-                                                <div className="bg-muted p-3 rounded-md max-h-96 overflow-auto">
+                                                <div className="bg-muted p-3 rounded-md max-h-[32rem] overflow-auto">
                                                     <pre className="text-sm whitespace-pre-wrap font-mono">
                                                         {output.isError ? (
                                                             <span className="text-destructive">{output.content}</span>
