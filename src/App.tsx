@@ -376,6 +376,7 @@ const App = () => {
     //     console.log("All response", allResponses)
     //     setIsLoading(false);
     // };
+    //Api Handler
     const handleGenerate = async () => {
         if (!promptText.trim()) {
             showMessageBox("Please enter a prompt to generate responses.", "warning");
@@ -388,21 +389,33 @@ const App = () => {
         }
 
         setIsLoading(true);
-        setOutputs([]); // clear previous
+        setOutputs([]); // clear previous outputs
 
         try {
-            const response = await fetch("http://localhost:5000/api/generate", {
+            // Build the platform-models object
+            const platformsWithModels = {};
+            selectedPlatforms.forEach((platform) => {
+                // Get all available models for this platform/function
+                const availableModels = dynamicPlatformModels[selectedFunction]?.[platform] || [];
+
+                // Filter selected models that belong to this platform
+                const modelsForPlatform = selectedModels.filter(model => availableModels.includes(model));
+
+                if (modelsForPlatform.length > 0) {
+                    platformsWithModels[platform.toLowerCase()] = modelsForPlatform;
+                }
+            });
+
+            const response = await fetch("http://127.0.0.1:5000/generate-post", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
                 body: JSON.stringify({
-                    function: selectedFunction,
-                    prompt: promptText,
-                    platforms: selectedPlatforms,
-                    models: selectedModels,
-                    inputs: dynamicInputs,
-                    dynamicPlatformModels // optional: if backend wants to match models per platform
+                    platforms: platformsWithModels,
+                    input: promptText,
+                    options: dynamicInputs || {},
+                    history: []
                 })
             });
 
@@ -410,8 +423,25 @@ const App = () => {
 
             if (!response.ok) throw new Error(data.error || "Something went wrong");
 
-            setOutputs(data.outputs);
-            console.log("api-response",data.outputs)
+            //set proper data in layout
+            const transformedOutputs = [];
+            if (data.response) {
+                for (const platform in data.response) {
+                    const platformOutputs = data.response[platform];
+
+                    platformOutputs.forEach(({ model, output }) => {
+                        transformedOutputs.push({
+                            platform: platform,
+                            model: model,
+                            displayName: `${model} - ${platform}`,
+                            content: output,
+                            isError: false
+                        });
+                    });
+                }
+            }
+
+            setOutputs(transformedOutputs);
         } catch (error) {
             console.error("Error generating:", error);
             showMessageBox("Failed to generate: " + error.message, "error");
@@ -419,6 +449,7 @@ const App = () => {
             setIsLoading(false);
         }
     };
+
 
     // Regenerate Single Output Handler
     const handleRegenerate = async (modelInfoToRegenerate, index) => {
@@ -494,7 +525,7 @@ const App = () => {
                             <div className="space-y-6">
                                 {/* Function Selector */}
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Function Test</label>
+                                    <label className="text-sm font-medium">Function</label>
                                     <Select value={selectedFunction} onValueChange={setSelectedFunction}>
                                         <SelectTrigger className="w-full">
                                             <div className="flex items-center">
@@ -632,7 +663,7 @@ const App = () => {
 
                                 {/* Prompt Text Area */}
                                 <div className="space-y-2">
-                                    <label className="text-sm font-medium">Prompt Text</label>
+                                    <label className="text-sm font-medium">Prompt</label>
                                     <textarea
                                         rows={8}
                                         className="w-full px-3 py-2 border border-input rounded-md bg-background resize-y"
@@ -669,8 +700,8 @@ const App = () => {
                                     </CardContent>
                                 </Card>
                             ) : (
-                                <div className={`h-full ${outputs.length > 3 ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto' : 'space-y-4 overflow-y-auto'}`}>
-                                    {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 h-full overflow-y-auto"> */}
+                                //  <div className={`h-full ${outputs.length > 3 ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto' : 'space-y-4 overflow-y-auto'}`}>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto">
                                     {outputs.map((output, index) => (
                                         <Card key={`${output.platform}-${output.model}-${index}`} className={output.isError ? 'border-destructive' : ''}>
                                             <CardHeader className="pb-3">
