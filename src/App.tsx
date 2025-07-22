@@ -15,7 +15,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Menu, X, ChevronDown, Bot, Zap, Palette, Code, FileText, Image, BarChart3, Copy, RotateCcw, Plus, History, Loader2 } from 'lucide-react';
+import { Menu, X, ChevronDown, Bot, Zap, Palette, Code, FileText, Image, BarChart3, Copy, RotateCcw, Plus, History, Loader2, Minus, ArrowLeft } from 'lucide-react';
 import { dummyHistory, HistoryEntry } from '@/utils/dummyHistoryHelper';
 
 // Dynamic JSON structure for Function -> Platform -> Models
@@ -176,6 +176,7 @@ const App = () => {
     const [isLeftPanelVisible, setIsLeftPanelVisible] = useState(true);
     const [searchHistory, setSearchHistory] = useState<HistoryEntry[]>([]);
     const [isNewEntry, setIsNewEntry] = useState(true);
+    const [showFormSection, setShowFormSection] = useState(false);
 
     useEffect(() => {
         // Check for saved theme preference or default to light mode
@@ -314,7 +315,7 @@ const App = () => {
     const saveToHistory = useCallback((prompt: string, type: string, response: any) => {
         const savedHistory = localStorage.getItem('searchHistory');
         let currentHistory: HistoryEntry[] = [];
-        
+
         if (savedHistory) {
             try {
                 currentHistory = JSON.parse(savedHistory);
@@ -362,6 +363,7 @@ const App = () => {
             setOutputs(entry.response);
         }
         setIsNewEntry(false);
+        setShowFormSection(true);
     }, []);
 
     // Handle New button click
@@ -373,6 +375,7 @@ const App = () => {
         setDynamicInputs({});
         setOutputs([]);
         setIsNewEntry(true);
+        setShowFormSection(true);
     }, []);
 
     // API Dispatcher Function
@@ -565,16 +568,16 @@ const App = () => {
                     isError: false,
                 }))
             );
-            
+
             // Save to history after successful API call
             saveToHistory(promptText, selectedFunction, transformedOutputs);
-            
+
             // Load the response from localStorage to display
             const savedHistory = localStorage.getItem('searchHistory');
             if (savedHistory) {
                 try {
                     const parsedHistory = JSON.parse(savedHistory);
-                    const currentEntry = parsedHistory.find(entry => 
+                    const currentEntry = parsedHistory.find(entry =>
                         entry.prompt === promptText && entry.type === selectedFunction
                     );
                     if (currentEntry && currentEntry.response) {
@@ -587,7 +590,7 @@ const App = () => {
             } else {
                 setOutputs(transformedOutputs);
             }
-            
+
             toast({
                 title: `${selectedFunction} API Success`,
                 description: `Response saved successfully for "${selectedFunction}".`,
@@ -678,206 +681,228 @@ const App = () => {
                 <div className="flex h-[calc(100vh-6rem)] overflow-hidden">
                     {/* Left Panel: Navigation and Controls */}
                     <div className={`${isLeftPanelVisible ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden border-r border-border bg-card h-full`}>
-                        <div className="p-6 h-full flex flex-col">
+                        <div className="p-6 h-full flex flex-col overflow-y-auto">
                             {/* + New Button */}
                             <div className="mb-6">
-                                <Button
-                                    variant="default"
-                                    size="sm"
-                                    onClick={handleNewClick}
-                                    className="w-full"
-                                >
-                                    <Plus className="w-4 h-4 mr-2" />
-                                    New
-                                </Button>
+                                {!showFormSection ? (
+                                    <Button
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() => {
+                                            setShowFormSection(true);
+                                            // any other logic for New
+                                        }}
+                                        className="w-full"
+                                    >
+                                        <Plus className="w-4 h-4 mr-2" />
+                                        New
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => {
+                                            setShowFormSection(false);
+                                            // Optional: clear form state if needed
+                                        }}
+                                        className="w-full"
+                                    >
+                                        <ArrowLeft className="w-4 h-4 mr-2" />
+                                        Back
+                                    </Button>
+                                )}
                             </div>
 
                             {/* Search History */}
-                            <div className="flex-1 overflow-y-auto">
-                                <div className="space-y-3">
-                                    <h3 className="text-sm font-medium text-muted-foreground">Search History</h3>
-                                    {searchHistory.length === 0 ? (
-                                        <p className="text-sm text-muted-foreground">No search history yet.</p>
-                                    ) : (
-                                        searchHistory.map((entry) => (
-                                            <div
-                                                key={entry.id}
-                                                className="p-3 border border-input rounded-md bg-background hover:bg-muted/50 cursor-pointer transition-colors"
-                                                onClick={() => loadHistoryEntry(entry)}
-                                            >
-                                                <p className="text-sm font-medium truncate">{entry.prompt}</p>
-                                                <p className="text-xs text-muted-foreground mt-1">
-                                                    {entry.type && <span className="font-medium">{entry.type}</span>}
-                                                    {entry.type && <span className="mx-1">•</span>}
-                                                    {new Date(entry.timestamp).toLocaleDateString()} at {new Date(entry.timestamp).toLocaleTimeString()}
-                                                </p>
-                                            </div>
-                                        ))
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Form Section - Always Visible */}
-                            <div className="space-y-6 mt-6 pt-6 border-t border-border">
-                                {/* Function Selector */}
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Function</label>
-                                    <Select value={selectedFunction} onValueChange={setSelectedFunction}>
-                                        <SelectTrigger className="w-full">
-                                            <div className="flex items-center">
-                                                <SelectValue placeholder="Select a function" />
-                                            </div>
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {functionConfigs.map(func => (
-                                                <SelectItem key={func.name} value={func.name}>
-                                                    <div className="flex items-center">
-                                                        {getFunctionIcon(func.name)}
-                                                        {func.name}
-                                                    </div>
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-
-                                {/* AI Platform Selector */}
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">AI Platforms</label>
-                                    <div className="border border-input rounded-md p-3 bg-background min-h-[2.5rem]">
-                                        {!selectedFunction ? (
-                                            <span className="text-muted-foreground text-sm">Select function first</span>
-                                        ) : getAvailablePlatforms().length === 0 ? (
-                                            <span className="text-muted-foreground text-sm">No platforms available</span>
+                            {!showFormSection && (
+                                <div className="flex-1 overflow-y-auto">
+                                    <div className="space-y-3">
+                                        <h3 className="text-sm font-medium text-muted-foreground">Search History</h3>
+                                        {searchHistory.length === 0 ? (
+                                            <p className="text-sm text-muted-foreground">No search history yet.</p>
                                         ) : (
-                                            <div className="space-y-2">
-                                                {getAvailablePlatforms().map(platform => (
-                                                    <div key={platform} className="flex items-center space-x-2">
-                                                        <Checkbox
-                                                            id={`platform-${platform}`}
-                                                            checked={selectedPlatforms.includes(platform)}
-                                                            onCheckedChange={(checked) => {
-                                                                if (checked) {
-                                                                    setSelectedPlatforms([...selectedPlatforms, platform]);
-                                                                } else {
-                                                                    setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
-                                                                }
-                                                            }}
-                                                            disabled={!selectedFunction}
+                                            searchHistory.map((entry) => (
+                                                <div
+                                                    key={entry.id}
+                                                    className="p-3 border border-input rounded-md bg-background hover:bg-muted/50 cursor-pointer transition-colors"
+                                                    onClick={() => loadHistoryEntry(entry)}
+                                                >
+                                                    <p className="text-sm font-medium truncate">{entry.prompt}</p>
+                                                    <p className="text-xs text-muted-foreground mt-1">
+                                                        {entry.type && <span className="font-medium">{entry.type}</span>}
+                                                        {entry.type && <span className="mx-1">•</span>}
+                                                        {new Date(entry.timestamp).toLocaleDateString()} at {new Date(entry.timestamp).toLocaleTimeString()}
+                                                    </p>
+                                                </div>
+                                            ))
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Form Section */}
+                            {showFormSection && (
+                                <div className="space-y-6 pt-3 border-border">
+                                    {/* Function Selector */}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Function</label>
+                                        <Select value={selectedFunction} onValueChange={setSelectedFunction}>
+                                            <SelectTrigger className="w-full">
+                                                <div className="flex items-center">
+                                                    <SelectValue placeholder="Select a function" />
+                                                </div>
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {functionConfigs.map(func => (
+                                                    <SelectItem key={func.name} value={func.name}>
+                                                        <div className="flex items-center">
+                                                            {getFunctionIcon(func.name)}
+                                                            {func.name}
+                                                        </div>
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+
+                                    {/* AI Platform Selector */}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">AI Platforms</label>
+                                        <div className="border border-input rounded-md p-3 bg-background min-h-[2.5rem]">
+                                            {!selectedFunction ? (
+                                                <span className="text-muted-foreground text-sm">Select function first</span>
+                                            ) : getAvailablePlatforms().length === 0 ? (
+                                                <span className="text-muted-foreground text-sm">No platforms available</span>
+                                            ) : (
+                                                <div className="space-y-2">
+                                                    {getAvailablePlatforms().map(platform => (
+                                                        <div key={platform} className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`platform-${platform}`}
+                                                                checked={selectedPlatforms.includes(platform)}
+                                                                onCheckedChange={(checked) => {
+                                                                    if (checked) {
+                                                                        setSelectedPlatforms([...selectedPlatforms, platform]);
+                                                                    } else {
+                                                                        setSelectedPlatforms(selectedPlatforms.filter(p => p !== platform));
+                                                                    }
+                                                                }}
+                                                                disabled={!selectedFunction}
+                                                            />
+                                                            <label
+                                                                htmlFor={`platform-${platform}`}
+                                                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center cursor-pointer"
+                                                            >
+                                                                {getPlatformIcon(platform)}
+                                                                {platform}
+                                                            </label>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Model Selector */}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Models</label>
+                                        <div className="border border-input rounded-md p-3 bg-background min-h-[2.5rem]">
+                                            {selectedPlatforms.length === 0 ? (
+                                                <span className="text-muted-foreground text-sm">Select platforms first</span>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    {Object.entries(getAvailableModels()).map(([platform, models]) => (
+                                                        <div key={platform} className="space-y-2">
+                                                            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center">
+                                                                {getPlatformIcon(platform)}
+                                                                {platform}
+                                                            </div>
+                                                            <div className="space-y-1 ml-6">
+                                                                {(models as string[]).map(model => (
+                                                                    <div key={`${platform}-${model}`} className="flex items-center space-x-2">
+                                                                        <Checkbox
+                                                                            id={`model-${platform}-${model}`}
+                                                                            checked={selectedModels.includes(model)}
+                                                                            onCheckedChange={(checked) => {
+                                                                                if (checked) {
+                                                                                    setSelectedModels([...selectedModels, model]);
+                                                                                } else {
+                                                                                    setSelectedModels(selectedModels.filter(m => m !== model));
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                        <label
+                                                                            htmlFor={`model-${platform}-${model}`}
+                                                                            className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                                                                        >
+                                                                            {model}
+                                                                        </label>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    {/* Dynamic Input Section */}
+                                    {selectedFunction && functionConfigs.find(f => f.name === selectedFunction)?.inputs.length > 0 && (
+                                        <div className="space-y-4">
+                                            <label className="text-sm font-medium">Additional Parameters</label>
+                                            {functionConfigs.find(f => f.name === selectedFunction)?.inputs.map(input => (
+                                                <div key={input.id} className="space-y-2">
+                                                    <label htmlFor={input.id} className="text-sm text-muted-foreground">
+                                                        {input.label}
+                                                    </label>
+                                                    {input.type === 'text' && (
+                                                        <input
+                                                            type="text"
+                                                            id={input.id}
+                                                            className="w-full px-3 py-2 border border-input rounded-md bg-background"
+                                                            placeholder={input.placeholder || ''}
+                                                            value={dynamicInputs[input.id] || ''}
+                                                            onChange={handleDynamicInputChange}
                                                         />
-                                                        <label
-                                                            htmlFor={`platform-${platform}`}
-                                                            className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center cursor-pointer"
-                                                        >
-                                                            {getPlatformIcon(platform)}
-                                                            {platform}
-                                                        </label>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
+                                                    )}
+                                                    {input.type === 'file' && (
+                                                        <input
+                                                            type="file"
+                                                            id={input.id}
+                                                            accept={input.accept || '*'}
+                                                            className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-secondary-foreground"
+                                                            onChange={handleDynamicInputChange}
+                                                        />
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Prompt Text Area */}
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-medium">Prompt</label>
+                                        <textarea
+                                            rows={4}
+                                            className="w-full px-3 py-2 border border-input rounded-md bg-background resize-y"
+                                            placeholder="Enter your prompt here..."
+                                            value={promptText}
+                                            onChange={(e) => setPromptText(e.target.value)}
+                                        />
                                     </div>
+
+                                    {/* Generate Button */}
+                                    <Button
+                                        onClick={handleGenerate}
+                                        disabled={isLoading || !selectedFunction || selectedPlatforms.length === 0 || selectedModels.length === 0}
+                                        className="w-full"
+                                    >
+                                        {isLoading ? 'Generating...' : 'Generate Response'}
+                                        {isLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>}
+                                    </Button>
                                 </div>
-
-                                {/* Model Selector */}
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Models</label>
-                                    <div className="border border-input rounded-md p-3 bg-background min-h-[2.5rem]">
-                                        {selectedPlatforms.length === 0 ? (
-                                            <span className="text-muted-foreground text-sm">Select platforms first</span>
-                                        ) : (
-                                            <div className="space-y-3">
-                                                {Object.entries(getAvailableModels()).map(([platform, models]) => (
-                                                    <div key={platform} className="space-y-2">
-                                                        <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide flex items-center">
-                                                            {getPlatformIcon(platform)}
-                                                            {platform}
-                                                        </div>
-                                                        <div className="space-y-1 ml-6">
-                                                            {(models as string[]).map(model => (
-                                                                <div key={`${platform}-${model}`} className="flex items-center space-x-2">
-                                                                    <Checkbox
-                                                                        id={`model-${platform}-${model}`}
-                                                                        checked={selectedModels.includes(model)}
-                                                                        onCheckedChange={(checked) => {
-                                                                            if (checked) {
-                                                                                setSelectedModels([...selectedModels, model]);
-                                                                            } else {
-                                                                                setSelectedModels(selectedModels.filter(m => m !== model));
-                                                                            }
-                                                                        }}
-                                                                    />
-                                                                    <label
-                                                                        htmlFor={`model-${platform}-${model}`}
-                                                                        className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                                                                    >
-                                                                        {model}
-                                                                    </label>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Dynamic Input Section */}
-                                {selectedFunction && functionConfigs.find(f => f.name === selectedFunction)?.inputs.length > 0 && (
-                                    <div className="space-y-4">
-                                        <label className="text-sm font-medium">Additional Parameters</label>
-                                        {functionConfigs.find(f => f.name === selectedFunction)?.inputs.map(input => (
-                                            <div key={input.id} className="space-y-2">
-                                                <label htmlFor={input.id} className="text-sm text-muted-foreground">
-                                                    {input.label}
-                                                </label>
-                                                {input.type === 'text' && (
-                                                    <input
-                                                        type="text"
-                                                        id={input.id}
-                                                        className="w-full px-3 py-2 border border-input rounded-md bg-background"
-                                                        placeholder={input.placeholder || ''}
-                                                        value={dynamicInputs[input.id] || ''}
-                                                        onChange={handleDynamicInputChange}
-                                                    />
-                                                )}
-                                                {input.type === 'file' && (
-                                                    <input
-                                                        type="file"
-                                                        id={input.id}
-                                                        accept={input.accept || '*'}
-                                                        className="w-full text-sm file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-secondary file:text-secondary-foreground"
-                                                        onChange={handleDynamicInputChange}
-                                                    />
-                                                )}
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                {/* Prompt Text Area */}
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Prompt</label>
-                                    <textarea
-                                        rows={4}
-                                        className="w-full px-3 py-2 border border-input rounded-md bg-background resize-y"
-                                        placeholder="Enter your prompt here..."
-                                        value={promptText}
-                                        onChange={(e) => setPromptText(e.target.value)}
-                                    />
-                                </div>
-
-                                {/* Generate Button */}
-                                <Button
-                                    onClick={handleGenerate}
-                                    disabled={isLoading || !selectedFunction || selectedPlatforms.length === 0 || selectedModels.length === 0}
-                                    className="w-full"
-                                >
-                                    {isLoading ? 'Generating...' : 'Generate Response'}
-                                    {isLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>}
-                                </Button>
-                            </div>
+                            )}
                         </div>
                     </div>
 
