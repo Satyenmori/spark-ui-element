@@ -20,7 +20,7 @@ import { dummyHistory, HistoryEntry, ModelResponse } from '@/utils/dummyHistoryH
 
 // Dynamic JSON structure for Function -> Platform -> Models
 const dynamicPlatformModels = {
-    "Text Completion": {
+    "Post Generation": {
         "OpenAI": ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
         "Anthropic": ["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
         "Google": ["gemini-1.5-pro", "gemini-1.0-pro", "palm2"],
@@ -50,7 +50,7 @@ const dynamicPlatformModels = {
 
 const functionConfigs = [
     {
-        name: "Text Completion",
+        name: "Post Generation",
         apiEndpoint: "/api/text-completion",
         inputs: [
             {
@@ -58,7 +58,7 @@ const functionConfigs = [
                 label: "Enable Image Generation",
                 type: "toggle",
                 default: false,
-                tooltip: "Turn image generation on/off."
+                tooltip: "image generation."
             }
         ]
     },
@@ -129,7 +129,7 @@ const getPlatformIcon = (platform) => {
 
 const getFunctionIcon = (functionName) => {
     switch (functionName) {
-        case 'Text Completion':
+        case 'Post Generation':
             return <FileText className="w-4 h-4 mr-2" />;
         case 'Code Generation':
             return <Code className="w-4 h-4 mr-2" />;
@@ -394,7 +394,7 @@ const App = () => {
         let url: string | null = null;
 
         switch (type.trim().toLowerCase()) {
-            case "text completion":
+            case "post generation":
                 url = "http://127.0.0.1:5000/generate-post";
                 break;
             case "code generation":
@@ -453,7 +453,7 @@ const App = () => {
                 let generatedText = `Response from ${modelInfo.displayName} for "${prompt}".\n\n`;
 
                 if (functionConfig.name === 'text_completion') {
-                    generatedText += `This is a sample text completion. The model analyzed your prompt and generated a relevant continuation or answer.`;
+                    generatedText += `This is a sample Post Generation. The model analyzed your prompt and generated a relevant continuation or answer.`;
                 } else if (functionConfig.name === 'code_generation') {
                     const language = dynamicInputs.language || 'Python';
                     const framework = dynamicInputs.framework ? ` (${dynamicInputs.framework})` : '';
