@@ -16,7 +16,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { Menu, X, ChevronDown, Bot, Zap, Palette, Code, FileText, Image, BarChart3, Copy, RotateCcw, Plus, History, Loader2, Minus, ArrowLeft } from 'lucide-react';
-import { dummyHistory, HistoryEntry } from '@/utils/dummyHistoryHelper';
+import { dummyHistory, HistoryEntry, ModelResponse } from '@/utils/dummyHistoryHelper';
 
 // Dynamic JSON structure for Function -> Platform -> Models
 const dynamicPlatformModels = {
@@ -26,11 +26,11 @@ const dynamicPlatformModels = {
         "Google": ["gemini-1.5-pro", "gemini-1.0-pro", "palm2"],
         "Cohere": ["command-r-plus", "command", "embed-english-v3.0"]
     },
-    "Code Generation": {
-        "OpenAI": ["gpt-4o", "gpt-4-turbo"],
-        "Anthropic": ["claude-3-opus", "claude-3-sonnet"],
-        "Google": ["gemini-1.5-pro"]
-    },
+    // "Code Generation": {
+    //     "OpenAI": ["gpt-4o", "gpt-4-turbo"],
+    //     "Anthropic": ["claude-3-opus", "claude-3-sonnet"],
+    //     "Google": ["gemini-1.5-pro"]
+    // },
     "Image Generation": {
         "OpenAI": ["dall-e-3", "dall-e-2"],
         "Stability": ["stable-diffusion-xl", "stable-diffusion-v2"]
@@ -40,28 +40,36 @@ const dynamicPlatformModels = {
         "Anthropic": ["claude-3-opus", "claude-3-sonnet"],
         "Google": ["gemini-1.5-pro"]
     },
-    "Sentiment Analysis": {
-        "OpenAI": ["gpt-4o", "gpt-3.5-turbo"],
-        "Anthropic": ["claude-3-haiku"],
-        "Google": ["gemini-1.0-pro"],
-        "Cohere": ["command-r-plus", "command"]
-    }
+    // "Sentiment Analysis": {
+    //     "OpenAI": ["gpt-4o", "gpt-3.5-turbo"],
+    //     "Anthropic": ["claude-3-haiku"],
+    //     "Google": ["gemini-1.0-pro"],
+    //     "Cohere": ["command-r-plus", "command"]
+    // }
 };
 
 const functionConfigs = [
     {
         name: "Text Completion",
         apiEndpoint: "/api/text-completion",
-        inputs: []
-    },
-    {
-        name: "Code Generation",
-        apiEndpoint: "/api/code-generation",
         inputs: [
-            { id: "language", label: "Language", type: "text", placeholder: "e.g., Python, JavaScript", tooltip: "Specify the programming language for code generation." },
-            { id: "framework", label: "Framework (Optional)", type: "text", placeholder: "e.g., React, Django", tooltip: "Specify a framework if relevant (e.g., React, Django)." }
+            {
+                id: "generate_image",
+                label: "Enable Image Generation",
+                type: "toggle",
+                default: false,
+                tooltip: "Turn image generation on/off."
+            }
         ]
     },
+    // {
+    //     name: "Code Generation",
+    //     apiEndpoint: "/api/code-generation",
+    //     inputs: [
+    //         { id: "language", label: "Language", type: "text", placeholder: "e.g., Python, JavaScript", tooltip: "Specify the programming language for code generation." },
+    //         { id: "framework", label: "Framework (Optional)", type: "text", placeholder: "e.g., React, Django", tooltip: "Specify a framework if relevant (e.g., React, Django)." }
+    //     ]
+    // },
     {
         name: "Image Generation",
         apiEndpoint: "/api/image-generation",
@@ -76,13 +84,13 @@ const functionConfigs = [
             { id: "imageUpload", label: "Upload Image", type: "file", accept: "image/*", tooltip: "Upload an image for the AI to describe." }
         ]
     },
-    {
-        name: "Sentiment Analysis",
-        apiEndpoint: "/api/sentiment-analysis",
-        inputs: [
-            { id: "sentimentTarget", label: "Target Entity (Optional)", type: "text", placeholder: "e.g., 'product', 'service'", tooltip: "Specify a specific entity to analyze sentiment for within the text." }
-        ]
-    }
+    // {
+    //     name: "Sentiment Analysis",
+    //     apiEndpoint: "/api/sentiment-analysis",
+    //     inputs: [
+    //         { id: "sentimentTarget", label: "Target Entity (Optional)", type: "text", placeholder: "e.g., 'product', 'service'", tooltip: "Specify a specific entity to analyze sentiment for within the text." }
+    //     ]
+    // }
 ];
 
 //interface
@@ -96,8 +104,8 @@ interface GeneratePayload {
 interface ModelOutput {
     model: string;
     output: string;
+    image_url: string;
 }
-
 interface ApiResponse {
     response?: Record<string, ModelOutput[]>;
     error?: string;
@@ -312,7 +320,7 @@ const App = () => {
     }, []);
 
     // Save to history
-    const saveToHistory = useCallback((prompt: string, type: string, response: any) => {
+    const saveToHistory = useCallback((prompt: string, type: string, response: ModelResponse[]) => {
         const savedHistory = localStorage.getItem('searchHistory');
         let currentHistory: HistoryEntry[] = [];
 
@@ -565,6 +573,7 @@ const App = () => {
                     model: item.model,
                     displayName: `${item.model} - ${platform}`,
                     content: item.output,
+                    imageUrl: item.image_url,
                     isError: false,
                 }))
             );
@@ -689,13 +698,13 @@ const App = () => {
                                         variant="default"
                                         size="sm"
                                         onClick={() => {
-                                            setShowFormSection(true);
+                                            handleNewClick();
                                             // any other logic for New
                                         }}
                                         className="w-full"
                                     >
                                         <Plus className="w-4 h-4 mr-2" />
-                                        New
+                                        New Chat
                                     </Button>
                                 ) : (
                                     <Button
@@ -703,9 +712,15 @@ const App = () => {
                                         size="sm"
                                         onClick={() => {
                                             setShowFormSection(false);
-                                            // Optional: clear form state if needed
+                                            setPromptText('');
+                                            setSelectedFunction('');
+                                            setSelectedPlatforms([]);
+                                            setSelectedModels([]);
+                                            setDynamicInputs({});
+                                            setOutputs([]);
+                                            setIsNewEntry(true);
                                         }}
-                                        className="w-full"
+                                        className="w-full bg-purple-500 hover:bg-purple-600 text-white"
                                     >
                                         <ArrowLeft className="w-4 h-4 mr-2" />
                                         Back
@@ -715,7 +730,7 @@ const App = () => {
 
                             {/* Search History */}
                             {!showFormSection && (
-                                <div className="flex-1 overflow-y-auto">
+                                <div className="flex-1">
                                     <div className="space-y-3">
                                         <h3 className="text-sm font-medium text-muted-foreground">Search History</h3>
                                         {searchHistory.length === 0 ? (
@@ -875,6 +890,24 @@ const App = () => {
                                                             onChange={handleDynamicInputChange}
                                                         />
                                                     )}
+                                                    {/* Toggle Input */}
+                                                    {input.type === 'toggle' && (
+                                                        <div className="flex items-center space-x-3">
+                                                            <input
+                                                                type="checkbox"
+                                                                id={input.id}
+                                                                checked={dynamicInputs[input.id] || false}
+                                                                onChange={(e) => handleDynamicInputChange({
+                                                                    target: {
+                                                                        id: input.id,
+                                                                        value: e.target.checked
+                                                                    }
+                                                                })}
+                                                                className="toggle-checkbox h-5 w-10 rounded-full border border-input bg-background transition duration-200 focus:outline-none cursor-pointer"
+                                                            />
+                                                            <span className="text-xs text-muted-foreground">{input.tooltip}</span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -964,7 +997,7 @@ const App = () => {
                                                 </div>
                                             </CardHeader>
                                             <CardContent>
-                                                <div className="bg-muted p-3 rounded-md max-h-[32rem] overflow-auto">
+                                                <div className="bg-muted p-3 rounded-md max-h-[32rem] overflow-auto space-y-4">
                                                     <pre className="text-sm whitespace-pre-wrap font-mono">
                                                         {output.isError ? (
                                                             <span className="text-destructive">{output.content}</span>
@@ -972,6 +1005,24 @@ const App = () => {
                                                             output.content
                                                         )}
                                                     </pre>
+                                                    {/* Image Output (if available) */}
+                                                    {output.imageUrl && (
+                                                        <div className="mt-2">
+                                                            <a
+                                                                href={output.imageUrl}
+                                                                target="_blank"
+                                                                rel="noopener noreferrer"
+                                                                className="block w-full"
+                                                                title="Click to view full image"
+                                                            >
+                                                                <img
+                                                                    src={output.imageUrl}
+                                                                    alt="Generated content"
+                                                                    className="rounded-md shadow-md hover:opacity-90 transition duration-200 w-full max-h-64 object-contain"
+                                                                />
+                                                            </a>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </CardContent>
                                         </Card>
