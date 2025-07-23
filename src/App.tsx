@@ -58,7 +58,21 @@ const functionConfigs = [
                 label: "Enable Image Generation",
                 type: "toggle",
                 default: false,
-                tooltip: "image generation."
+                tooltip: "Generate Image."
+            },
+            {
+                id: "tone",
+                label: "Tone",
+                type: "select",
+                options: ["professional", "witty", "friendly", "casual", "empathetic"],
+                default: "professional"
+            },
+            {
+                id: "length",
+                label: "Length",
+                type: "radio-group",
+                options: ["short", "medium", "long"],
+                default: "short"
             }
         ]
     },
@@ -249,13 +263,21 @@ const App = () => {
     // Update dynamic inputs based on selected function
     useEffect(() => {
         const currentFunctionConfig = functionConfigs.find(func => func.name === selectedFunction);
-        const newDynamicInputs = {};
+        const newDynamicInputs: Record<string, string | boolean | null> = {};
+
         if (currentFunctionConfig && currentFunctionConfig.inputs.length > 0) {
             currentFunctionConfig.inputs.forEach(input => {
-                // Preserve existing values if input ID matches, otherwise set to default
-                newDynamicInputs[input.id] = dynamicInputs[input.id] || (input.type === 'file' ? null : '');
+                newDynamicInputs[input.id] =
+                    dynamicInputs[input.id] ?? (
+                        input.type === 'file' ? null :
+                            input.type === 'radio-group' ? input.default ?? input.options?.[0] :
+                                input.type === 'select' ? input.default ?? '' :
+                                    input.type === 'toggle' ? input.default ?? false :
+                                        input.default ?? ''
+                    );
             });
         }
+
         setDynamicInputs(newDynamicInputs);
     }, [selectedFunction]);
 
@@ -908,6 +930,56 @@ const App = () => {
                                                             <span className="text-xs text-muted-foreground">{input.tooltip}</span>
                                                         </div>
                                                     )}
+                                                    {/* Select Box */}
+                                                    {input.type === 'select' && (
+                                                        <div className="space-y-2">
+                                                            {/* <label className="text-sm font-medium">{input.label}</label> */}
+                                                            <Select
+                                                                value={dynamicInputs[input.id] || ''}
+                                                                onValueChange={(value) => handleDynamicInputChange({ target: { id: input.id, value } })}
+                                                            >
+                                                                <SelectTrigger className="w-full">
+                                                                    <SelectValue placeholder={`Select ${input.label}`} />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    {input.options.map(option => (
+                                                                        <SelectItem key={option} value={option}>
+                                                                            {option}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    )}
+                                                    {/* Length Radio-grop */}
+                                                    {input.type === 'radio-group' && (
+                                                        <div className="flex flex-wrap gap-4">
+                                                            {input.options.map(option => (
+                                                                <label
+                                                                    key={option}
+                                                                    className={`px-4 py-2 border rounded-md cursor-pointer text-sm ${dynamicInputs[input.id] === option
+                                                                        ? 'bg-primary text-white'
+                                                                        : 'bg-background text-muted-foreground border-input'
+                                                                        }`}
+                                                                >
+                                                                    <input
+                                                                        type="radio"
+                                                                        name={input.id}
+                                                                        value={option}
+                                                                        checked={dynamicInputs[input.id] === option}
+                                                                        onChange={(e) => handleDynamicInputChange({
+                                                                            target: {
+                                                                                id: input.id,
+                                                                                value: e.target.value
+                                                                            }
+                                                                        })}
+                                                                        className="hidden"
+                                                                    />
+                                                                    {option}
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
                                             ))}
                                         </div>
@@ -964,7 +1036,7 @@ const App = () => {
                                 </Card>
                             ) : (
                                 //  <div className={`h-full ${outputs.length > 3 ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto' : 'space-y-4 overflow-y-auto'}`}>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto h-full">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto">
                                     {outputs.map((output, index) => (
                                         <Card key={`${output.platform}-${output.model}-${index}`} className={output.isError ? 'border-destructive' : ''}>
                                             <CardHeader className="pb-3">
