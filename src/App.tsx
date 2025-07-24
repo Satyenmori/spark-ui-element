@@ -602,25 +602,25 @@ const App = () => {
 
             // Save to history after successful API call
             saveToHistory(promptText, selectedFunction, transformedOutputs);
-
+            setOutputs(transformedOutputs);
             // Load the response from localStorage to display
-            const savedHistory = localStorage.getItem('searchHistory');
-            if (savedHistory) {
-                try {
-                    const parsedHistory = JSON.parse(savedHistory);
-                    const currentEntry = parsedHistory.find(entry =>
-                        entry.prompt === promptText && entry.type === selectedFunction
-                    );
-                    if (currentEntry && currentEntry.response) {
-                        setOutputs(currentEntry.response);
-                    }
-                } catch (error) {
-                    console.error('Error loading from localStorage:', error);
-                    setOutputs(transformedOutputs);
-                }
-            } else {
-                setOutputs(transformedOutputs);
-            }
+            // const savedHistory = localStorage.getItem('searchHistory');
+            // if (savedHistory) {
+            //     try {
+            //         const parsedHistory = JSON.parse(savedHistory);
+            //         const currentEntry = parsedHistory.find(entry =>
+            //             entry.prompt === promptText && entry.type === selectedFunction
+            //         );
+            //         if (currentEntry && currentEntry.response) {
+            //             setOutputs(currentEntry.response);
+            //         }
+            //     } catch (error) {
+            //         console.error('Error loading from localStorage:', error);
+            //         setOutputs(transformedOutputs);
+            //     }
+            // } else {
+            //     setOutputs(transformedOutputs);
+            // }
 
             toast({
                 title: `${selectedFunction} API Success`,
@@ -714,8 +714,8 @@ const App = () => {
                     <div className={`${isLeftPanelVisible ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden border-r border-border bg-card h-full`}>
                         <div className="p-6 h-full flex flex-col overflow-y-auto">
                             {/* + New Button */}
-                            <div className="mb-6">
-                                {!showFormSection ? (
+                            {/* <div className="mb-6">
+                                
                                     <Button
                                         variant="default"
                                         size="sm"
@@ -728,30 +728,11 @@ const App = () => {
                                         <Plus className="w-4 h-4 mr-2" />
                                         New Chat
                                     </Button>
-                                ) : (
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => {
-                                            setShowFormSection(false);
-                                            setPromptText('');
-                                            setSelectedFunction('');
-                                            setSelectedPlatforms([]);
-                                            setSelectedModels([]);
-                                            setDynamicInputs({});
-                                            setOutputs([]);
-                                            setIsNewEntry(true);
-                                        }}
-                                        className="w-full bg-purple-500 hover:bg-purple-600 text-white"
-                                    >
-                                        <ArrowLeft className="w-4 h-4 mr-2" />
-                                        Back
-                                    </Button>
-                                )}
-                            </div>
+                                
+                            </div> */}
 
                             {/* Search History */}
-                            {!showFormSection && (
+                            {/* {!showFormSection && (
                                 <div className="flex-1">
                                     <div className="space-y-3">
                                         <h3 className="text-sm font-medium text-muted-foreground">Search History</h3>
@@ -775,10 +756,10 @@ const App = () => {
                                         )}
                                     </div>
                                 </div>
-                            )}
+                            )} */}
 
                             {/* Form Section */}
-                            {showFormSection && (
+                            
                                 <div className="space-y-6 pt-3 border-border">
                                     {/* Function Selector */}
                                     <div className="space-y-2">
@@ -1007,7 +988,7 @@ const App = () => {
                                         {isLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>}
                                     </Button>
                                 </div>
-                            )}
+                            
                         </div>
                     </div>
 
