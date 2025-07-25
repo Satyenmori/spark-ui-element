@@ -15,7 +15,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Menu, X, ChevronDown, Bot, Zap, Palette, Code, FileText, Image, BarChart3, Copy, RotateCcw, Plus, History, Loader2, Minus, ArrowLeft } from 'lucide-react';
+import { Menu, X, ChevronDown, Bot, Zap, Palette, Code, FileText, Image, BarChart3, Copy, RotateCcw, Plus, History, Loader2, Minus, ArrowLeft, Download, Instagram, Linkedin, Twitter, Facebook } from 'lucide-react';
+import { Document, Packer, Paragraph, TextRun } from 'docx';
 import { dummyHistory, HistoryEntry, ModelResponse } from '@/utils/dummyHistoryHelper';
 
 // Dynamic JSON structure for Function -> Platform -> Models
@@ -144,6 +145,21 @@ const getPlatformIcon = (platform) => {
             return <BarChart3 className="w-4 h-4 mr-2 text-blue-500" />;
         case 'stability':
             return <Image className="w-4 h-4 mr-2 text-pink-500" />;
+        default:
+            return <Bot className="w-4 h-4 mr-2 text-gray-500" />;
+    }
+};
+
+const getSocialMediaIcon = (platform) => {
+    switch (platform.toLowerCase()) {
+        case 'instagram':
+            return <Instagram className="w-4 h-4 mr-2 text-pink-500" />;
+        case 'linkedin':
+            return <Linkedin className="w-4 h-4 mr-2 text-blue-600" />;
+        case 'twitter':
+            return <Twitter className="w-4 h-4 mr-2 text-blue-400" />;
+        case 'facebook':
+            return <Facebook className="w-4 h-4 mr-2 text-blue-700" />;
         default:
             return <Bot className="w-4 h-4 mr-2 text-gray-500" />;
     }
@@ -416,41 +432,172 @@ const App = () => {
     //     setShowFormSection(true);
     // }, []);
 
-    // API Dispatcher Function
+    // Export to DOC functionality
+    const exportToDoc = useCallback(async () => {
+        if (!promptText || !selectedFunction || outputs.length === 0) {
+            toast({
+                title: "Export Failed",
+                description: "No data to export. Please generate content first.",
+                variant: "destructive",
+            });
+            return;
+        }
+
+        try {
+            const doc = new Document({
+                sections: [{
+                    properties: {},
+                    children: [
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: "AI Playground Export",
+                                    bold: true,
+                                    size: 32,
+                                }),
+                            ],
+                        }),
+                        new Paragraph({
+                            children: [new TextRun("")],
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: "Function: ",
+                                    bold: true,
+                                }),
+                                new TextRun(selectedFunction),
+                            ],
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: "Prompt: ",
+                                    bold: true,
+                                }),
+                                new TextRun(promptText),
+                            ],
+                        }),
+                        new Paragraph({
+                            children: [new TextRun("")],
+                        }),
+                        new Paragraph({
+                            children: [
+                                new TextRun({
+                                    text: "Generated Outputs:",
+                                    bold: true,
+                                    size: 24,
+                                }),
+                            ],
+                        }),
+                        ...outputs.flatMap((output, index) => [
+                            new Paragraph({
+                                children: [new TextRun("")],
+                            }),
+                            new Paragraph({
+                                children: [
+                                    new TextRun({
+                                        text: `${index + 1}. ${output.displayName}`,
+                                        bold: true,
+                                    }),
+                                ],
+                            }),
+                            new Paragraph({
+                                children: [new TextRun(output.content)],
+                            }),
+                        ]),
+                    ],
+                }],
+            });
+
+            const blob = await Packer.toBlob(doc);
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `ai-playground-export-${new Date().toISOString().split('T')[0]}.docx`;
+            link.click();
+            window.URL.revokeObjectURL(url);
+
+            toast({
+                title: "Export Successful",
+                description: "Document has been downloaded successfully.",
+                variant: "success",
+            });
+        } catch (error) {
+            console.error('Export error:', error);
+            toast({
+                title: "Export Failed",
+                description: "Failed to export document. Please try again.",
+                variant: "destructive",
+            });
+        }
+    }, [promptText, selectedFunction, outputs, toast]);
+
+    // API Dispatcher Function - Updated to call all APIs simultaneously
     const callAIModel = async (
         type: string,
         payload: GeneratePayload
     ): Promise<ApiResponse> => {
-        let url: string | null = null;
+        const apiConfigs = [
+            {
+                condition: type.trim().toLowerCase() === "post generation",
+                url: "http://127.0.0.1:5000/generate-post",
+                name: "Post Generation"
+            },
+            // Add more API configurations here as they become available
+            // {
+            //     condition: type.trim().toLowerCase() === "image generation",
+            //     url: "http://127.0.0.1:5000/generate-image",
+            //     name: "Image Generation"
+            // },
+        ];
 
-        switch (type.trim().toLowerCase()) {
-            case "post generation":
-                url = "http://127.0.0.1:5000/generate-post";
-                break;
-            case "code generation":
-                throw new Error("Code Generation API not implemented yet");
-            case "image generation":
-                throw new Error("Image Generation API not implemented yet");
-            case "image description":
-                throw new Error("Image Description API not implemented yet");
-            case "sentiment description":
-                throw new Error("Summarizer API not implemented yet");
-            default:
-                throw new Error(`API not found for selected function: "${type}"`);
+        const validApis = apiConfigs.filter(config => config.condition);
+        
+        if (validApis.length === 0) {
+            throw new Error(`API not found for selected function: "${type}"`);
         }
 
-        const response = await fetch(url, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload),
+        // Execute all valid API calls simultaneously
+        const apiCalls = validApis.map(async (config) => {
+            try {
+                const response = await fetch(config.url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload),
+                });
+
+                const data: ApiResponse = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Unknown error from server");
+                }
+                return { success: true, data, apiName: config.name };
+            } catch (error) {
+                console.error(`Error calling ${config.name} API:`, error);
+                return { success: false, error: error.message, apiName: config.name };
+            }
         });
 
-        const data: ApiResponse = await response.json();
+        // Wait for all API calls to complete
+        const results = await Promise.allSettled(apiCalls);
+        
+        // Process results - return the first successful response or combine them
+        const successfulResults = results
+            .filter((result): result is PromiseFulfilledResult<{success: true, data: ApiResponse, apiName: string}> => 
+                result.status === 'fulfilled' && result.value.success)
+            .map(result => result.value);
 
-        if (!response.ok) {
-            throw new Error(data.error || "Unknown error from server");
+        if (successfulResults.length > 0) {
+            return successfulResults[0].data; // Return first successful result
+        } else {
+            // If all failed, throw error with details
+            const errors = results
+                .filter((result): result is PromiseFulfilledResult<{success: false, error: string, apiName: string}> => 
+                    result.status === 'fulfilled' && !result.value.success)
+                .map(result => result.value.error);
+            throw new Error(`All API calls failed: ${errors.join(', ')}`);
         }
-        return data;
     };
 
     // Copy to Clipboard
@@ -591,7 +738,10 @@ const App = () => {
             const payload: GeneratePayload = {
                 platforms: platformsWithModels,
                 input: promptText,
-                options: dynamicInputs || {},
+                options: {
+                    ...dynamicInputs,
+                    socialMediaPlatforms: (dynamicInputs as any).socialMediaPlatforms || []
+                },
                 history: [],
             };
             const data = await callAIModel(selectedFunction, payload);
@@ -959,7 +1109,7 @@ const App = () => {
                                                         </Select>
                                                     </div>
                                                 )}
-                                                {/* Length Radio-grop */}
+                                                {/* Length Radio-group */}
                                                 {input.type === 'radio-group' && (
                                                     <div className="flex flex-wrap gap-4">
                                                         {input.options.map(option => (
@@ -988,6 +1138,40 @@ const App = () => {
                                                         ))}
                                                     </div>
                                                 )}
+                                                {/* Multi-select for Social Media Platforms */}
+                                                {input.type === 'multi-select' && (
+                                                    <div className="border border-input rounded-md p-3 bg-background min-h-[2.5rem]">
+                                                        <div className="space-y-2">
+                                                            {input.options.map(option => (
+                                                                <div key={option} className="flex items-center space-x-2">
+                                                                    <Checkbox
+                                                                        id={`${input.id}-${option}`}
+                                                                        checked={(dynamicInputs[input.id] || []).includes(option)}
+                                                                        onCheckedChange={(checked) => {
+                                                                            const currentValues = dynamicInputs[input.id] || [];
+                                                                            const newValues = checked
+                                                                                ? [...currentValues, option]
+                                                                                : currentValues.filter(v => v !== option);
+                                                                            handleDynamicInputChange({
+                                                                                target: {
+                                                                                    id: input.id,
+                                                                                    value: newValues
+                                                                                }
+                                                                            });
+                                                                        }}
+                                                                    />
+                                                                    <label
+                                                                        htmlFor={`${input.id}-${option}`}
+                                                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center cursor-pointer"
+                                                                    >
+                                                                        {getSocialMediaIcon(option)}
+                                                                        {option}
+                                                                    </label>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -1014,6 +1198,18 @@ const App = () => {
                                     {isLoading ? 'Generating...' : 'Generate Response'}
                                     {isLoading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white ml-2"></div>}
                                 </Button>
+
+                                {/* Export Button */}
+                                {outputs.length > 0 && (
+                                    <Button
+                                        onClick={exportToDoc}
+                                        variant="outline"
+                                        className="w-full mt-4"
+                                    >
+                                        <Download className="w-4 h-4 mr-2" />
+                                        Export to DOC
+                                    </Button>
+                                )}
                             </div>
 
                         </div>
