@@ -16,7 +16,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { Menu, X, ChevronDown, Bot, Zap, Palette, Code, FileText, Image, BarChart3, Copy, RotateCcw, Plus, History, Loader2, Minus, ArrowLeft, Download, Instagram, Linkedin, Twitter, Facebook } from 'lucide-react';
-import { Document, Packer, Paragraph, TextRun } from 'docx';
+import { Document, ExternalHyperlink, Packer, Paragraph, TextRun } from 'docx';
 import { dummyHistory, HistoryEntry, ModelResponse } from '@/utils/dummyHistoryHelper';
 
 // Dynamic JSON structure for Function -> Platform -> Models
@@ -133,6 +133,12 @@ interface ApiResponse {
     response?: Record<string, ModelOutput[]>;
     error?: string;
 }
+type PostGenerationInputs = {
+    generate_image: boolean;
+    tone: "professional" | "witty" | "friendly" | "casual" | "empathetic";
+    length: "short" | "medium" | "long";
+    socialMediaPlatforms: string[]; // or a stricter enum type if needed
+};
 const getPlatformIcon = (platform) => {
     switch (platform.toLowerCase()) {
         case 'openai':
@@ -442,7 +448,7 @@ const App = () => {
             });
             return;
         }
-
+        console.log("outputs", outputs)
         try {
             const doc = new Document({
                 sections: [{
@@ -490,22 +496,51 @@ const App = () => {
                                 }),
                             ],
                         }),
-                        ...outputs.flatMap((output, index) => [
-                            new Paragraph({
-                                children: [new TextRun("")],
-                            }),
-                            new Paragraph({
-                                children: [
-                                    new TextRun({
-                                        text: `${index + 1}. ${output.displayName}`,
-                                        bold: true,
-                                    }),
-                                ],
-                            }),
-                            new Paragraph({
-                                children: [new TextRun(output.content)],
-                            }),
-                        ]),
+                        ...outputs.flatMap((output, index) => {
+                            const content = typeof output.content === "string" && output.content.trim()
+                                ? output.content
+                                : "No content available.";
+
+                            const paragraphs = [
+                                new Paragraph({ children: [new TextRun("")] }),
+                                new Paragraph({
+                                    children: [
+                                        new TextRun({
+                                            text: `${index + 1}. ${output.displayName}`,
+                                            bold: true,
+                                        }),
+                                    ],
+                                }),
+                                new Paragraph({
+                                    children: [new TextRun(content)],
+                                }),
+                            ];
+
+                            // ✅ Conditionally add imageUrl if available
+                            if (output.imageUrl && typeof output.imageUrl === "string" && output.imageUrl.trim()) {
+                                paragraphs.push(
+                                    new Paragraph({
+                                        children: [
+                                            new TextRun({
+                                                text: "Image Link: ",
+                                                bold: true,
+                                            }),
+                                            new ExternalHyperlink({
+                                                children: [
+                                                    new TextRun({
+                                                        text: output.imageUrl,
+                                                        style: "Hyperlink",
+                                                    }),
+                                                ],
+                                                link: output.imageUrl,
+                                            }),
+                                        ],
+                                    })
+                                );
+                            }
+
+                            return paragraphs;
+                        }),
                     ],
                 }],
             });
@@ -553,7 +588,7 @@ const App = () => {
         ];
 
         const validApis = apiConfigs.filter(config => config.condition);
-        
+
         if (validApis.length === 0) {
             throw new Error(`API not found for selected function: "${type}"`);
         }
@@ -581,10 +616,10 @@ const App = () => {
 
         // Wait for all API calls to complete
         const results = await Promise.allSettled(apiCalls);
-        
+
         // Process results - return the first successful response or combine them
         const successfulResults = results
-            .filter((result): result is PromiseFulfilledResult<{success: true, data: ApiResponse, apiName: string}> => 
+            .filter((result): result is PromiseFulfilledResult<{ success: true, data: ApiResponse, apiName: string }> =>
                 result.status === 'fulfilled' && result.value.success)
             .map(result => result.value);
 
@@ -593,7 +628,7 @@ const App = () => {
         } else {
             // If all failed, throw error with details
             const errors = results
-                .filter((result): result is PromiseFulfilledResult<{success: false, error: string, apiName: string}> => 
+                .filter((result): result is PromiseFulfilledResult<{ success: false, error: string, apiName: string }> =>
                     result.status === 'fulfilled' && !result.value.success)
                 .map(result => result.value.error);
             throw new Error(`All API calls failed: ${errors.join(', ')}`);
@@ -734,13 +769,13 @@ const App = () => {
                     platformsWithModels[platform.toLowerCase()] = modelsForPlatform;
                 }
             });
-
+            const dynamicInputsTyped = dynamicInputs as PostGenerationInputs;
             const payload: GeneratePayload = {
                 platforms: platformsWithModels,
                 input: promptText,
                 options: {
-                    ...dynamicInputs,
-                    socialMediaPlatforms: (dynamicInputs as any).socialMediaPlatforms || []
+                    ...dynamicInputsTyped,
+                    socialMediaPlatforms: dynamicInputsTyped.socialMediaPlatforms || []
                 },
                 history: [],
             };
