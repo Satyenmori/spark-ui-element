@@ -73,6 +73,14 @@ const functionConfigs = [
                 type: "radio-group",
                 options: ["short", "medium", "long"],
                 default: "short"
+            },
+            {
+                id: "socialMediaPlatforms",
+                label: "Social Media Platforms",
+                type: "multi-select",
+                options: ["Instagram", "LinkedIn", "Twitter", "Facebook"],
+                default: [],
+                tooltip: "Select one or more social media platforms."
             }
         ]
     },
@@ -293,34 +301,34 @@ const App = () => {
     }, [selectedPlatforms]);
 
     // Load search history on mount
-    useEffect(() => {
-        const loadHistory = () => {
-            const savedHistory = localStorage.getItem('searchHistory');
-            if (savedHistory) {
-                try {
-                    const parsedHistory = JSON.parse(savedHistory);
-                    setSearchHistory(parsedHistory);
-                } catch (error) {
-                    console.error('Error parsing saved history:', error);
-                    setSearchHistory(dummyHistory);
-                }
-            } else {
-                setSearchHistory(dummyHistory);
-            }
-        };
-        loadHistory();
-    }, []);
+    // useEffect(() => {
+    //     const loadHistory = () => {
+    //         const savedHistory = localStorage.getItem('searchHistory');
+    //         if (savedHistory) {
+    //             try {
+    //                 const parsedHistory = JSON.parse(savedHistory);
+    //                 setSearchHistory(parsedHistory);
+    //             } catch (error) {
+    //                 console.error('Error parsing saved history:', error);
+    //                 setSearchHistory(dummyHistory);
+    //             }
+    //         } else {
+    //             setSearchHistory(dummyHistory);
+    //         }
+    //     };
+    //     loadHistory();
+    // }, []);
 
     // --- Handlers ---
 
     // Theme Toggle Handler
-    const handleThemeToggle = () => {
-        const newTheme = theme === 'light' ? 'dark' : 'light';
-        setTheme(newTheme);
-        document.documentElement.classList.remove(theme);
-        document.documentElement.classList.add(newTheme);
-        localStorage.setItem('theme', newTheme);
-    };
+    // const handleThemeToggle = () => {
+    //     const newTheme = theme === 'light' ? 'dark' : 'light';
+    //     setTheme(newTheme);
+    //     document.documentElement.classList.remove(theme);
+    //     document.documentElement.classList.add(newTheme);
+    //     localStorage.setItem('theme', newTheme);
+    // };
 
     // Toggle Left Panel Handler
     const toggleLeftPanel = () => {
@@ -397,16 +405,16 @@ const App = () => {
     }, []);
 
     // Handle New button click
-    const handleNewClick = useCallback(() => {
-        setPromptText('');
-        setSelectedFunction('');
-        setSelectedPlatforms([]);
-        setSelectedModels([]);
-        setDynamicInputs({});
-        setOutputs([]);
-        setIsNewEntry(true);
-        setShowFormSection(true);
-    }, []);
+    // const handleNewClick = useCallback(() => {
+    //     setPromptText('');
+    //     setSelectedFunction('');
+    //     setSelectedPlatforms([]);
+    //     setSelectedModels([]);
+    //     setDynamicInputs({});
+    //     setOutputs([]);
+    //     setIsNewEntry(true);
+    //     setShowFormSection(true);
+    // }, []);
 
     // API Dispatcher Function
     const callAIModel = async (
@@ -430,7 +438,7 @@ const App = () => {
             default:
                 throw new Error(`API not found for selected function: "${type}"`);
         }
-        
+
         const response = await fetch(url, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
