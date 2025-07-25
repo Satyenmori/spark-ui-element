@@ -77,11 +77,11 @@ const functionConfigs = [
             },
             {
                 id: "socialMediaPlatforms",
-                label: "Social Media Platforms",
-                type: "multi-select",
+                label: "Social Media Platform",
+                type: "multi-select", // <-- changed from multi-select
                 options: ["Instagram", "LinkedIn", "Twitter", "Facebook"],
-                default: [],
-                tooltip: "Select one or more social media platforms."
+                default: "Instagram", // <-- single string, not array
+                tooltip: "Select one social media platform."
             }
         ]
     },
@@ -127,6 +127,7 @@ interface GeneratePayload {
 interface ModelOutput {
     model: string;
     output: string;
+    generated_prompt: string,
     image_url: string;
 }
 interface ApiResponse {
@@ -137,7 +138,7 @@ type PostGenerationInputs = {
     generate_image: boolean;
     tone: "professional" | "witty" | "friendly" | "casual" | "empathetic";
     length: "short" | "medium" | "long";
-    socialMediaPlatforms: string[]; // or a stricter enum type if needed
+    socialMediaPlatforms: string;
 };
 const getPlatformIcon = (platform) => {
     switch (platform.toLowerCase()) {
@@ -774,8 +775,7 @@ const App = () => {
                 platforms: platformsWithModels,
                 input: promptText,
                 options: {
-                    ...dynamicInputsTyped,
-                    socialMediaPlatforms: dynamicInputsTyped.socialMediaPlatforms || []
+                    ...dynamicInputsTyped
                 },
                 history: [],
             };
@@ -788,11 +788,13 @@ const App = () => {
                     model: item.model,
                     displayName: `${item.model} - ${platform}`,
                     content: item.output,
+                    imagePrompt: item.generated_prompt,
                     imageUrl: item.image_url,
                     isError: false,
                 }))
             );
             setOutputs(transformedOutputs);
+            console.log("setOutputs",transformedOutputs)
             // Save to history after successful API call
             // saveToHistory(promptText, selectedFunction, transformedOutputs);
 
@@ -1173,38 +1175,34 @@ const App = () => {
                                                         ))}
                                                     </div>
                                                 )}
-                                                {/* Multi-select for Social Media Platforms */}
-                                                {input.type === 'multi-select' && (
-                                                    <div className="border border-input rounded-md p-3 bg-background min-h-[2.5rem]">
-                                                        <div className="space-y-2">
-                                                            {input.options.map(option => (
-                                                                <div key={option} className="flex items-center space-x-2">
-                                                                    <Checkbox
-                                                                        id={`${input.id}-${option}`}
-                                                                        checked={(dynamicInputs[input.id] || []).includes(option)}
-                                                                        onCheckedChange={(checked) => {
-                                                                            const currentValues = dynamicInputs[input.id] || [];
-                                                                            const newValues = checked
-                                                                                ? [...currentValues, option]
-                                                                                : currentValues.filter(v => v !== option);
-                                                                            handleDynamicInputChange({
-                                                                                target: {
-                                                                                    id: input.id,
-                                                                                    value: newValues
-                                                                                }
-                                                                            });
-                                                                        }}
-                                                                    />
-                                                                    <label
-                                                                        htmlFor={`${input.id}-${option}`}
-                                                                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center cursor-pointer"
-                                                                    >
-                                                                        {getSocialMediaIcon(option)}
-                                                                        {option}
-                                                                    </label>
-                                                                </div>
-                                                            ))}
-                                                        </div>
+                                                {/* multi-select for Social Media Platforms */}
+                                                {input.type === 'multi-select' && input.id === 'socialMediaPlatforms' && (
+                                                    <div className="space-y-2 border border-input rounded-md p-3 bg-background min-h-[2.5rem]">
+                                                        {input.options.map(option => (
+                                                            <div key={option} className="flex items-center space-x-2">
+                                                                <input
+                                                                    type="radio"
+                                                                    id={`${input.id}-${option}`}
+                                                                    name={input.id}
+                                                                    value={option}
+                                                                    checked={dynamicInputs[input.id] === option}
+                                                                    onChange={(e) => handleDynamicInputChange({
+                                                                        target: {
+                                                                            id: input.id,
+                                                                            value: e.target.value
+                                                                        }
+                                                                    })}
+                                                                    className="form-radio text-primary"
+                                                                />
+                                                                <label
+                                                                    htmlFor={`${input.id}-${option}`}
+                                                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center cursor-pointer"
+                                                                >
+                                                                    {getSocialMediaIcon(option)}
+                                                                    {option}
+                                                                </label>
+                                                            </div>
+                                                        ))}
                                                     </div>
                                                 )}
                                             </div>
@@ -1316,6 +1314,7 @@ const App = () => {
                                                             output.content
                                                         )}
                                                     </pre>
+                                                    
                                                     {/* Image Output (if available) */}
                                                     {output.imageUrl && (
                                                         <div className="mt-2">
@@ -1333,6 +1332,12 @@ const App = () => {
                                                                 />
                                                             </a>
                                                         </div>
+                                                    )}
+                                                    {/* Image prompt (if available) */}
+                                                    {output.imagePrompt && (
+                                                        <pre className="text-sm whitespace-pre-wrap font-mono">
+                                                             {output.imagePrompt}
+                                                        </pre>
                                                     )}
                                                 </div>
                                             </CardContent>
