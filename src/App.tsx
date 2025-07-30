@@ -572,7 +572,8 @@ const App = () => {
     // API Dispatcher Function - Updated to call all APIs simultaneously
     const callAIModel = async (
         type: string,
-        payload: GeneratePayload
+        payload: GeneratePayload,
+        imageFile?: File // Add an optional imageFile parameter
     ): Promise<ApiResponse> => {
         const apiConfigs = [
             {
@@ -581,11 +582,16 @@ const App = () => {
                 name: "Post Generation"
             },
             // Add more API configurations here as they become available
-            // {
-            //     condition: type.trim().toLowerCase() === "image generation",
-            //     url: "http://127.0.0.1:5000/generate-image",
-            //     name: "Image Generation"
-            // },
+            {
+                condition: type.trim().toLowerCase() === "image generation",
+                url: "http://127.0.0.1:5000/generate-image-only",
+                name: "Image Generation"
+            },
+            {
+                condition: type.trim().toLowerCase() === "image description",
+                url: "http://127.0.0.1:5000/generate-image-description",
+                name: "Image Description"
+            },
         ];
 
         const validApis = apiConfigs.filter(config => config.condition);
@@ -597,11 +603,38 @@ const App = () => {
         // Execute all valid API calls simultaneously
         const apiCalls = validApis.map(async (config) => {
             try {
-                const response = await fetch(config.url, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify(payload),
-                });
+                let response;
+                if (config.name === "Image Description" && imageFile) {
+                    // For image description, use FormData
+                    const formData = new FormData();
+                    formData.append("image", imageFile); // Append the actual image File here
+
+                    // Create a *new* payload object that does NOT include the image file itself in 'options'
+                    const payloadForFormData: GeneratePayload = {
+                        platforms: payload.platforms,
+                        input: payload.input,
+                        options: { ...payload.options }, // Copy options to avoid modifying original
+                        history: payload.history,
+                    };
+
+                    if (payloadForFormData.options && 'imageUpload' in payloadForFormData.options) {
+                        delete payloadForFormData.options.imageUpload; // Ensure image is not nested in payload
+                    }
+
+                    formData.append("payload", JSON.stringify(payloadForFormData)); // Stringify the clean payload JSON
+
+                    response = await fetch(config.url, {
+                        method: "POST",
+                        body: formData, // No Content-Type header needed for FormData; browser sets it.
+                    });
+                } else {
+                    // For other APIs, use application/json
+                    response = await fetch(config.url, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(payload),
+                    });
+                }
 
                 const data: ApiResponse = await response.json();
 
@@ -770,31 +803,42 @@ const App = () => {
                     platformsWithModels[platform.toLowerCase()] = modelsForPlatform;
                 }
             });
-            const dynamicInputsTyped = dynamicInputs as PostGenerationInputs;
+            // Ensure dynamicInputs correctly holds the file, assuming the file input's ID is 'imageUpload'
+            const imageFile = dynamicInputs['imageUpload'] as File | undefined;
+
+            // Construct the payload without the image file nested inside 'options'
             const payload: GeneratePayload = {
                 platforms: platformsWithModels,
                 input: promptText,
-                options: {
-                    ...dynamicInputsTyped
+                options: { // Copy other dynamic inputs, but exclude the image file here
+                    ...Object.fromEntries(
+                        Object.entries(dynamicInputs).filter(([key]) => key !== 'imageUpload')
+                    )
                 },
                 history: [],
             };
-            const data = await callAIModel(selectedFunction, payload);
+            let data: ApiResponse;
+            if (selectedFunction.trim().toLowerCase() === "image description" && imageFile) {
+                // Pass the imageFile directly as the third argument
+                data = await callAIModel(selectedFunction, payload, imageFile);
+            } else {
+                data = await callAIModel(selectedFunction, payload);
+            }
 
             //set proper data in layout
-            const transformedOutputs = Object.entries(data.response || {}).flatMap(([platform, results]) =>
-                results.map((item) => ({
-                    platform,
-                    model: item.model,
+            const transformedOutputs = Object.entries(data.response || {}).flatMap(([platform, modelsObject]) => {
+                return Object.entries(modelsObject).map(([modelName, item]) => ({
+                    platform: platform, // 'platform' comes from the outer loop
+                    model: item.model, // 'item.model' comes from the inner object
                     displayName: `${item.model} - ${platform}`,
                     content: item.output,
                     imagePrompt: item.generated_prompt,
                     imageUrl: item.image_url,
                     isError: false,
-                }))
-            );
+                }));
+            });
             setOutputs(transformedOutputs);
-            console.log("setOutputs",transformedOutputs)
+            console.log("setOutputs", transformedOutputs)
             // Save to history after successful API call
             // saveToHistory(promptText, selectedFunction, transformedOutputs);
 
@@ -1314,7 +1358,7 @@ const App = () => {
                                                             output.content
                                                         )}
                                                     </pre>
-                                                    
+
                                                     {/* Image Output (if available) */}
                                                     {output.imageUrl && (
                                                         <div className="mt-2">
@@ -1336,7 +1380,7 @@ const App = () => {
                                                     {/* Image prompt (if available) */}
                                                     {output.imagePrompt && (
                                                         <pre className="text-sm whitespace-pre-wrap font-mono">
-                                                             {output.imagePrompt}
+                                                            {output.imagePrompt}
                                                         </pre>
                                                     )}
                                                 </div>
