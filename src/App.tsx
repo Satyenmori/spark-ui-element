@@ -15,17 +15,17 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
-import { Menu, X, ChevronDown, Bot, Zap, Palette, Code, FileText, Image, BarChart3, Copy, RotateCcw, Plus, History, Loader2, Minus, ArrowLeft, Download, Instagram, Linkedin, Twitter, Facebook } from 'lucide-react';
+import { Menu, X, ChevronDown, Bot, Zap, Palette, Code, FileText, Image, BarChart3, Copy, RotateCcw, Plus, History, Loader2, Minus, ArrowLeft, Download, Instagram, Linkedin, Twitter, Facebook, InfinityIcon, Atom } from 'lucide-react';
 import { Document, ExternalHyperlink, Packer, Paragraph, TextRun } from 'docx';
 import { dummyHistory, HistoryEntry, ModelResponse } from '@/utils/dummyHistoryHelper';
 
 // Dynamic JSON structure for Function -> Platform -> Models
 const dynamicPlatformModels = {
     "Post Generation": {
-        "OpenAI": ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
+        "OpenAI": ["gpt-5-chat", "gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo"],
+        "Meta": ["llama-3.2-3b-instruct", "llama3", "meta-llama/Llama-3-8b-chat-hf"],
+        "Google": ["gemini-2.5-pro", "gemini-pro-1.5", "gemini-1.0-pro"],
         "Anthropic": ["claude-3-opus", "claude-3-sonnet", "claude-3-haiku"],
-        "Google": ["gemini-1.5-pro", "gemini-1.0-pro", "palm2"],
-        "Cohere": ["command-r-plus", "command", "embed-english-v3.0"]
     },
     // "Code Generation": {
     //     "OpenAI": ["gpt-4o", "gpt-4-turbo"],
@@ -65,7 +65,7 @@ const functionConfigs = [
                 id: "tone",
                 label: "Tone",
                 type: "select",
-                options: ["professional", "witty", "friendly", "casual", "empathetic"],
+                options: ["professional", "witty", "friendly", "casual", "empathetic", "motivational", "neutral", "informational"],
                 default: "professional"
             },
             {
@@ -80,7 +80,7 @@ const functionConfigs = [
                 label: "Social Media Platform",
                 type: "multi-select", // <-- changed from multi-select
                 options: ["Instagram", "LinkedIn", "Twitter", "Facebook"],
-                default: "Instagram", // <-- single string, not array
+                default: ["Instagram"], // <-- single array
                 tooltip: "Select one social media platform."
             }
         ]
@@ -129,6 +129,7 @@ interface ModelOutput {
     output: string;
     generated_prompt: string,
     image_url: string;
+    social_media_platform: string
 }
 interface ApiResponse {
     response?: Record<string, ModelOutput[]>;
@@ -146,10 +147,10 @@ const getPlatformIcon = (platform) => {
             return <Bot className="w-4 h-4 mr-2 text-green-500" />;
         case 'anthropic':
             return <Zap className="w-4 h-4 mr-2 text-orange-500" />;
-        case 'cohere':
-            return <Palette className="w-4 h-4 mr-2 text-purple-500" />;
+        case 'meta':
+            return <InfinityIcon className="w-4 h-4 mr-2 text-purple-500" />;
         case 'google':
-            return <BarChart3 className="w-4 h-4 mr-2 text-blue-500" />;
+            return <Atom className="w-4 h-4 mr-2 text-blue-500" />;
         case 'stability':
             return <Image className="w-4 h-4 mr-2 text-pink-500" />;
         default:
@@ -824,19 +825,40 @@ const App = () => {
             } else {
                 data = await callAIModel(selectedFunction, payload);
             }
-
+            const transformedOutputs: {
+                platform: string; // This will be the LLM platform (e.g., "openai")
+                model: string;
+                displayName: string;
+                content: string;
+                imagePrompt?: string;
+                imageUrl?: string;
+                isError: boolean;
+                socialMediaPlatform: string;
+            }[] = [];
             //set proper data in layout
-            const transformedOutputs = Object.entries(data.response || {}).flatMap(([platform, modelsObject]) => {
-                return Object.entries(modelsObject).map(([modelName, item]) => ({
-                    platform: platform, // 'platform' comes from the outer loop
-                    model: item.model, // 'item.model' comes from the inner object
-                    displayName: `${item.model} - ${platform}`,
-                    content: item.output,
-                    imagePrompt: item.generated_prompt,
-                    imageUrl: item.image_url,
-                    isError: false,
-                }));
-            });
+            if (data.response && typeof data.response === 'object') {
+                Object.entries(data.response).forEach(([llmPlatform, resultsArray]) => {
+                    // Ensure resultsArray is actually an array before mapping
+                    if (Array.isArray(resultsArray)) {
+                        resultsArray.forEach((item) => {
+                            transformedOutputs.push({
+                                platform: llmPlatform, // e.g., "openai"
+                                model: item.model,
+                                displayName: `${item.model} - ${llmPlatform} (${item.social_media_platform || 'Generic'})`,
+                                content: item.output,
+                                imagePrompt: item.generated_prompt, // Will be undefined if not present
+                                imageUrl: item.image_url, // Will be undefined if not present
+                                isError: false,
+                                socialMediaPlatform: item.social_media_platform,
+                            });
+                        });
+                    } else {
+                        console.warn(`Unexpected data format for LLM platform ${llmPlatform}: Expected an array, got`, resultsArray);
+                    }
+                });
+            } else {
+                console.warn("API response 'response' key is missing or not an object:", data);
+            }
             setOutputs(transformedOutputs);
             console.log("setOutputs", transformedOutputs)
             // Save to history after successful API call
@@ -1222,33 +1244,45 @@ const App = () => {
                                                 {/* multi-select for Social Media Platforms */}
                                                 {input.type === 'multi-select' && input.id === 'socialMediaPlatforms' && (
                                                     <div className="space-y-2 border border-input rounded-md p-3 bg-background min-h-[2.5rem]">
-                                                        {input.options.map(option => (
-                                                            <div key={option} className="flex items-center space-x-2">
-                                                                <input
-                                                                    type="radio"
-                                                                    id={`${input.id}-${option}`}
-                                                                    name={input.id}
-                                                                    value={option}
-                                                                    checked={dynamicInputs[input.id] === option}
-                                                                    onChange={(e) => handleDynamicInputChange({
-                                                                        target: {
-                                                                            id: input.id,
-                                                                            value: e.target.value
-                                                                        }
-                                                                    })}
-                                                                    className="form-radio text-primary"
-                                                                />
-                                                                <label
-                                                                    htmlFor={`${input.id}-${option}`}
-                                                                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 flex items-center cursor-pointer"
-                                                                >
-                                                                    {getSocialMediaIcon(option)}
-                                                                    {option}
-                                                                </label>
-                                                            </div>
-                                                        ))}
+                                                        {input.options.map(option => {
+                                                            const selectedValues = dynamicInputs[input.id] || [];
+
+                                                            return (
+                                                                <div key={option} className="flex items-center space-x-2">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        id={`${input.id}-${option}`}
+                                                                        name={input.id}
+                                                                        value={option}
+                                                                        checked={selectedValues.includes(option)}
+                                                                        onChange={(e) => {
+                                                                            const checked = e.target.checked;
+                                                                            const newValues = checked
+                                                                                ? [...selectedValues, option]
+                                                                                : selectedValues.filter((v) => v !== option);
+
+                                                                            handleDynamicInputChange({
+                                                                                target: {
+                                                                                    id: input.id,
+                                                                                    value: newValues
+                                                                                }
+                                                                            });
+                                                                        }}
+                                                                        className="form-checkbox text-primary"
+                                                                    />
+                                                                    <label
+                                                                        htmlFor={`${input.id}-${option}`}
+                                                                        className="text-sm font-medium leading-none flex items-center cursor-pointer"
+                                                                    >
+                                                                        {getSocialMediaIcon(option)}
+                                                                        {option}
+                                                                    </label>
+                                                                </div>
+                                                            );
+                                                        })}
                                                     </div>
                                                 )}
+
                                             </div>
                                         ))}
                                     </div>
@@ -1378,11 +1412,11 @@ const App = () => {
                                                         </div>
                                                     )}
                                                     {/* Image prompt (if available) */}
-                                                    {output.imagePrompt && (
+                                                    {/* {output.imagePrompt && (
                                                         <pre className="text-sm whitespace-pre-wrap font-mono">
                                                             {output.imagePrompt}
                                                         </pre>
-                                                    )}
+                                                    )} */}
                                                 </div>
                                             </CardContent>
                                         </Card>
