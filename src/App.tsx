@@ -15,6 +15,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Menu, X, ChevronDown, Bot, Zap, Palette, Code, FileText, Image, BarChart3, Copy, RotateCcw, Plus, History, Loader2, Minus, ArrowLeft, Download, Instagram, Linkedin, Twitter, Facebook, InfinityIcon, Atom } from 'lucide-react';
 import { Document, ExternalHyperlink, Packer, Paragraph, TextRun } from 'docx';
 import { dummyHistory, HistoryEntry, ModelResponse } from '@/utils/dummyHistoryHelper';
@@ -217,6 +218,7 @@ const MessageBox = ({ message, type, onClose }) => {
 const App = () => {
     const [isDarkMode, setIsDarkMode] = useState(false);
     const { toast } = useToast();
+    const isMobile = useIsMobile();
     const [theme, setTheme] = useState('light');
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [selectedFunction, setSelectedFunction] = useState('');
@@ -899,6 +901,10 @@ const App = () => {
             // showMessageBox("Failed to generate: " + error.message, "error");
         } finally {
             setIsLoading(false);
+            // Auto-close menu on mobile after generation
+            if (isMobile && isLeftPanelVisible) {
+                setIsLeftPanelVisible(false);
+            }
         }
     };
 
@@ -972,7 +978,7 @@ const App = () => {
                 {/* Main Content */}
                 <div className="flex h-[calc(100vh-6rem)] overflow-hidden">
                     {/* Left Panel: Navigation and Controls */}
-                    <div className={`${isLeftPanelVisible ? 'w-80' : 'w-0'} transition-all duration-300 overflow-hidden border-r border-border bg-card h-full`}>
+                    <div className={`${isLeftPanelVisible ? (isMobile ? 'w-full' : 'w-80') : 'w-0'} transition-all duration-300 overflow-hidden border-r border-border bg-card h-full ${isMobile && isLeftPanelVisible ? 'absolute z-10' : ''}`}>
                         <div className="p-6 h-full flex flex-col overflow-y-auto">
                             {/* + New Button */}
                             {/* <div className="mb-6">
@@ -1327,7 +1333,7 @@ const App = () => {
                     </div>
 
                     {/* Right Panel: Model Outputs */}
-                    <div className="flex-1 p-6 h-full overflow-y-auto">
+                    <div className={`flex-1 p-6 h-full overflow-y-auto ${isMobile && isLeftPanelVisible ? 'hidden' : ''}`}>
                         <div className="h-full">
                             {isLoading ? (
                                 <Card className="h-full flex items-center justify-center">
